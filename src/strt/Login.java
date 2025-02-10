@@ -13,31 +13,32 @@ import java.sql.ResultSet;
 import javax.swing.JOptionPane;
 
 public class Login extends javax.swing.JFrame {
-    
+
     private static Login main = null;
     public static String loggedInUserID;
 
     public Login() {
         initComponents();
     }
-    
+
     public static Login getInstance() {
         if (main == null) {
             main = new Login();
         }
         return main;
     }
-    
+
     private void showErrorMessage(String message) {
         JOptionPane.showMessageDialog(this, message, "Login Error", JOptionPane.ERROR_MESSAGE);
     }
-    
+
     public void resetFields() {
         txtUser.setText("");
         txtPass.setText("");
     }
 
     @SuppressWarnings("unchecked")
+    // <editor-fold defaultstate="collapsed" desc="Generated
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
@@ -48,7 +49,7 @@ public class Login extends javax.swing.JFrame {
         txtUser = new javax.swing.JTextField();
         txtPass = new javax.swing.JPasswordField();
         btnLogin = new javax.swing.JButton();
-        btnSignup = new javax.swing.JButton();
+        btnRegister = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -86,7 +87,7 @@ public class Login extends javax.swing.JFrame {
         btnLogin.setBackground(new java.awt.Color(154, 164, 255));
         btnLogin.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
         btnLogin.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/log-in-regular-24.png"))); // NOI18N
-        btnLogin.setText("Log in");
+        btnLogin.setText(" Log in");
         btnLogin.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         btnLogin.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -94,14 +95,14 @@ public class Login extends javax.swing.JFrame {
             }
         });
 
-        btnSignup.setBackground(new java.awt.Color(154, 164, 255));
-        btnSignup.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
-        btnSignup.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/user-plus-regular-24.png"))); // NOI18N
-        btnSignup.setText("Sign up");
-        btnSignup.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        btnSignup.addActionListener(new java.awt.event.ActionListener() {
+        btnRegister.setBackground(new java.awt.Color(154, 164, 255));
+        btnRegister.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        btnRegister.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/user-plus-regular-24.png"))); // NOI18N
+        btnRegister.setText(" Register");
+        btnRegister.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        btnRegister.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnSignupActionPerformed(evt);
+                btnRegisterActionPerformed(evt);
             }
         });
 
@@ -116,9 +117,9 @@ public class Login extends javax.swing.JFrame {
                     .addComponent(lblPass)
                     .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                         .addGroup(mainPanelLayout.createSequentialGroup()
-                            .addComponent(btnLogin)
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(btnSignup))
+                            .addComponent(btnLogin, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addGap(18, 18, 18)
+                            .addComponent(btnRegister, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addComponent(txtUser, javax.swing.GroupLayout.Alignment.LEADING)
                         .addComponent(txtPass, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 240, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
@@ -139,8 +140,8 @@ public class Login extends javax.swing.JFrame {
                 .addComponent(txtPass, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 32, Short.MAX_VALUE)
                 .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(btnSignup)
-                    .addComponent(btnLogin))
+                    .addComponent(btnRegister, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnLogin, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(36, 36, 36))
         );
 
@@ -159,24 +160,19 @@ public class Login extends javax.swing.JFrame {
         setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
 
-    private void btnSignupActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSignupActionPerformed
-        SignUp signUp = new SignUp();
-        signUp.setVisible(true);
-        this.setVisible(false);
-    }//GEN-LAST:event_btnSignupActionPerformed
-
-    private void btnLoginActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLoginActionPerformed
+    private void btnLoginActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_btnLoginActionPerformed
         String user = txtUser.getText();
         String password = new String(txtPass.getPassword());
 
         if (user.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please fill in both username and password.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please fill in both username and password.", "Input Error",
+                    JOptionPane.ERROR_MESSAGE);
             return;
         }
 
         try (Connection conn = DBConnection.Connect()) {
             String sql = "SELECT u.user_id, p.first_name, p.last_name, u.password FROM profiles p JOIN users u ON p.user_id = u.user_id "
-            + "WHERE u.username = ? OR email = ?";
+                    + "WHERE u.username = ? OR email = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                 pstmt.setString(1, user);
                 pstmt.setString(2, user);
@@ -203,7 +199,8 @@ public class Login extends javax.swing.JFrame {
                                 adminDB.setVisible(true);
                                 resetFields();
                                 this.dispose();
-                                JOptionPane.showMessageDialog(this, "Welcome, " + fullName + "!", "Login Successful", JOptionPane.INFORMATION_MESSAGE);
+                                JOptionPane.showMessageDialog(this, "Welcome, " + fullName + "!", "Login Successful",
+                                        JOptionPane.INFORMATION_MESSAGE);
                             } else {
                                 sql = "SELECT * FROM residents WHERE user_id = ?";
                                 try (PreparedStatement residentStmt = conn.prepareStatement(sql)) {
@@ -215,7 +212,8 @@ public class Login extends javax.swing.JFrame {
                                         residentDB.setVisible(true);
                                         resetFields();
                                         this.dispose();
-                                        JOptionPane.showMessageDialog(this, "Welcome, " + fullName + "!", "Login Successful", JOptionPane.INFORMATION_MESSAGE);
+                                        JOptionPane.showMessageDialog(this, "Welcome, " + fullName + "!",
+                                                "Login Successful", JOptionPane.INFORMATION_MESSAGE);
                                     } else {
                                         showErrorMessage("User not recognized.");
                                     }
@@ -233,25 +231,35 @@ public class Login extends javax.swing.JFrame {
             e.printStackTrace();
             showErrorMessage("Database error: " + e.getMessage());
         }
-    }//GEN-LAST:event_btnLoginActionPerformed
+    }// GEN-LAST:event_btnLoginActionPerformed
 
-    private void txtPassKeyPressed(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_txtPassKeyPressed
+    private void txtPassKeyPressed(java.awt.event.KeyEvent evt) {// GEN-FIRST:event_txtPassKeyPressed
 
-    }//GEN-LAST:event_txtPassKeyPressed
+    }// GEN-LAST:event_txtPassKeyPressed
 
-    private void txtPassActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtPassActionPerformed
+    private void txtPassActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_txtPassActionPerformed
 
-    }//GEN-LAST:event_txtPassActionPerformed
+    }// GEN-LAST:event_txtPassActionPerformed
 
-    private void txtUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtUserActionPerformed
+    private void txtUserActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_txtUserActionPerformed
 
-    }//GEN-LAST:event_txtUserActionPerformed
+    }// GEN-LAST:event_txtUserActionPerformed
+
+    private void btnRegisterActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_btnRegisterActionPerformed
+        Registration signUp = new Registration();
+        signUp.setVisible(true);
+        this.setVisible(false);
+    }// GEN-LAST:event_btnRegisterActionPerformed
 
     public static void main(String args[]) {
         /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
+        // <editor-fold defaultstate="collapsed" desc=" Look and feel setting code
+        // (optional) ">
+        /*
+         * If Nimbus (introduced in Java SE 6) is not available, stay with the default
+         * look and feel.
+         * For details see
+         * http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html
          */
         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
@@ -269,8 +277,8 @@ public class Login extends javax.swing.JFrame {
         } catch (javax.swing.UnsupportedLookAndFeelException ex) {
             java.util.logging.Logger.getLogger(Login.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
-        //</editor-fold>
-        //</editor-fold>
+        // </editor-fold>
+        // </editor-fold>
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
@@ -282,7 +290,7 @@ public class Login extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnLogin;
-    private javax.swing.JButton btnSignup;
+    private javax.swing.JButton btnRegister;
     private javax.swing.JLabel lblPass;
     private javax.swing.JLabel lblTitle;
     private javax.swing.JLabel lblUser;
