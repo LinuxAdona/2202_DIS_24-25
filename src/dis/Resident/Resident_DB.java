@@ -76,6 +76,17 @@ public class Resident_DB extends javax.swing.JFrame {
                     }
                 }
             }
+            String unreadNotificationsSql = "SELECT COUNT(*) AS unread_count FROM notifications "
+                    + "WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?) AND status = 'unread'";
+            try (PreparedStatement unreadPs = conn.prepareStatement(unreadNotificationsSql)) {
+                unreadPs.setString(1, userID);
+                ResultSet unreadRs = unreadPs.executeQuery();
+                if (unreadRs.next() && unreadRs.getInt("unread_count") > 0) {
+                    lblNotif.setIcon(new ImageIcon(getClass().getResource("/assets/bell-ring-solid-24.png"))); // Change to unread icon
+                } else {
+                    lblNotif.setIcon(new ImageIcon(getClass().getResource("/assets/bell-solid-24.png"))); // Default icon
+                }
+            }
         } catch (SQLException e) {
             showErrorMessage("Database error: " + e.getMessage());
         }
@@ -817,30 +828,56 @@ public class Resident_DB extends javax.swing.JFrame {
         }
 
         try (Connection conn = DBConnection.Connect()) {
-            String notificationsSql = "SELECT message, notif_date, status FROM notifications "
+            String notificationsSql = "SELECT notif_id, message, notif_date, status FROM notifications "
                     + "WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
             try (PreparedStatement notificationsPs = conn.prepareStatement(notificationsSql)) {
                 notificationsPs.setString(1, userID);
                 ResultSet notificationsRs = notificationsPs.executeQuery();
 
                 // Create a table to display notifications
-                String[] columnNames = {"Message", "Date", "Status"};
+                String[] columnNames = {"Notification ID", "Message", "Date", "Status"};
                 ArrayList<Object[]> data = new ArrayList<>();
                 while (notificationsRs.next()) {
+                    int notifId = notificationsRs.getInt("notif_id"); // Get notif_id as an integer
                     String message = notificationsRs.getString("message");
                     java.sql.Timestamp notifDate = notificationsRs.getTimestamp("notif_date");
                     String status = notificationsRs.getString("status");
-                    data.add(new Object[]{message, notifDate, status});
+                    data.add(new Object[]{notifId, message, notifDate, status}); // Store in the correct order
                 }
 
                 // Show the notifications in a dialog
                 JTable notificationsTable = new JTable(data.toArray(new Object[0][]), columnNames);
                 notificationsTable.setFillsViewportHeight(true);
                 JScrollPane scrollPane = new JScrollPane(notificationsTable);
+
+                // Add mouse listener to handle row clicks
+                notificationsTable.addMouseListener(new java.awt.event.MouseAdapter() {
+                    public void mouseClicked(java.awt.event.MouseEvent evt) {
+                        int row = notificationsTable.getSelectedRow();
+                        if (row != -1) {
+                            // Get the notification ID from the data
+                            int notifId = (int) data.get(row)[0]; // Assuming the first column is notif_id
+                            markNotificationAsRead(conn, notifId);
+                            
+                            showNotifications(); // Refresh the notifications after marking as read
+                        }
+                    }
+                });
+
                 JOptionPane.showMessageDialog(this, scrollPane, "Notifications", JOptionPane.INFORMATION_MESSAGE);
             }
         } catch (SQLException e) {
             showErrorMessage("Database error: " + e.getMessage());
+        }
+    }
+
+    private void markNotificationAsRead(Connection conn, int notifId) {
+        String updateNotificationSql = "UPDATE notifications SET status = 'read' WHERE notif_id = ?";
+        try (PreparedStatement updateNotificationPs = conn.prepareStatement(updateNotificationSql)) {
+            updateNotificationPs.setInt(1, notifId);
+            updateNotificationPs.executeUpdate();
+        } catch (SQLException e) {
+            showErrorMessage("Failed to mark notification as read: " + e.getMessage());
         }
     }
     

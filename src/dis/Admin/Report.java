@@ -42,21 +42,29 @@ public class Report extends javax.swing.JFrame {
                 + "JOIN Payments p ON b.resident_id = p.resident_id "
                 + "ORDER BY p.date_paid";
 
+        double totalAmountPaid = 0.0; // Initialize total amount variable
+
         try (Connection conn = DBConnection.Connect(); PreparedStatement pstmt = conn.prepareStatement(query); ResultSet rs = pstmt.executeQuery()) {
 
             while (rs.next()) {
                 // Create an array with the correct size (7)
                 Object[] row = new Object[7];
                 row[0] = rs.getBigDecimal("rent"); // Rent
-                row[1] = rs.getBigDecimal("electric_usage"); // Electricity Bill
-                row[2] = rs.getBigDecimal("water_usage"); // Water Bill
-                row[3] = rs.getDouble("amount_paid"); // Amount Paid
+                row[1] = String.format("PHP %.2f", rs.getBigDecimal("electric_usage")); // Electricity Bill
+                row[2] = String.format("PHP %.2f", rs.getBigDecimal("water_usage")); // Water Bill
+                double amountPaid = rs.getDouble("amount_paid"); // Amount Paid
+                row[3] = String.format("PHP %.2f", amountPaid); // Amount Paid
                 row[4] = rs.getDate("date_paid"); // Date Paid
                 row[5] = rs.getDate("due_date"); // Due Date
                 row[6] = rs.getString("status"); // Status
 
                 model.addRow(row); // Add the row to the table model
+
+                totalAmountPaid += amountPaid; // Accumulate the total amount paid
             }
+
+            // Set the total amount paid to the txtTotal field
+            txtTotal.setText("PHP " + String.format("%.2f", totalAmountPaid)); // Format to 2 decimal places
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(this, "Error loading Report: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -85,6 +93,8 @@ public class Report extends javax.swing.JFrame {
         deetPanel = new javax.swing.JPanel();
         jScrollPane1 = new javax.swing.JScrollPane();
         tbReport = new javax.swing.JTable();
+        txtTotal = new javax.swing.JTextField();
+        lblElectricUsage6 = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -160,7 +170,7 @@ public class Report extends javax.swing.JFrame {
                 .addComponent(lblDoors)
                 .addGap(18, 18, 18)
                 .addComponent(lblHome4)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 278, Short.MAX_VALUE)
                 .addComponent(lblLogout)
                 .addGap(30, 30, 30))
         );
@@ -218,21 +228,37 @@ public class Report extends javax.swing.JFrame {
         });
         jScrollPane1.setViewportView(tbReport);
 
+        txtTotal.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
+        txtTotal.setFocusable(false);
+
+        lblElectricUsage6.setFont(new java.awt.Font("Poppins", 1, 24)); // NOI18N
+        lblElectricUsage6.setText("Total :");
+
         javax.swing.GroupLayout deetPanelLayout = new javax.swing.GroupLayout(deetPanel);
         deetPanel.setLayout(deetPanelLayout);
         deetPanelLayout.setHorizontalGroup(
             deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(deetPanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane1)
+                .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane1)
+                    .addGroup(deetPanelLayout.createSequentialGroup()
+                        .addComponent(lblElectricUsage6)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(txtTotal, javax.swing.GroupLayout.PREFERRED_SIZE, 210, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         deetPanelLayout.setVerticalGroup(
             deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(deetPanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 488, Short.MAX_VALUE)
-                .addContainerGap())
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(lblElectricUsage6, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(txtTotal))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout contentPanelLayout = new javax.swing.GroupLayout(contentPanel);
@@ -349,6 +375,7 @@ public class Report extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JLabel lblBG;
     private javax.swing.JLabel lblDoors;
+    private javax.swing.JLabel lblElectricUsage6;
     private javax.swing.JLabel lblHome;
     private javax.swing.JLabel lblHome1;
     private javax.swing.JLabel lblHome4;
@@ -357,5 +384,6 @@ public class Report extends javax.swing.JFrame {
     private javax.swing.JPanel mainPanel;
     private javax.swing.JPanel navPanel;
     private javax.swing.JTable tbReport;
+    private javax.swing.JTextField txtTotal;
     // End of variables declaration//GEN-END:variables
 }
