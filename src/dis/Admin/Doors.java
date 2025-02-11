@@ -153,8 +153,7 @@ public class Doors extends javax.swing.JFrame {
         lblLogout = new javax.swing.JLabel();
         lblAccounts = new javax.swing.JLabel();
         lblHome2 = new javax.swing.JLabel();
-        lblHome3 = new javax.swing.JLabel();
-        lblHome4 = new javax.swing.JLabel();
+        lblReport = new javax.swing.JLabel();
         contentPanel = new javax.swing.JPanel();
         heroPanel = new javax.swing.JPanel();
         lblTitle = new javax.swing.JLabel();
@@ -221,15 +220,15 @@ public class Doors extends javax.swing.JFrame {
         lblHome2.setText(" Doors");
         lblHome2.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        lblHome3.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblHome3.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/notepad-regular-24.png"))); // NOI18N
-        lblHome3.setText(" Summary");
-        lblHome3.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-
-        lblHome4.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblHome4.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/report-solid-24.png"))); // NOI18N
-        lblHome4.setText(" Report");
-        lblHome4.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblReport.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
+        lblReport.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/report-solid-24.png"))); // NOI18N
+        lblReport.setText(" Report");
+        lblReport.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblReport.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                lblReportMouseClicked(evt);
+            }
+        });
 
         javax.swing.GroupLayout navPanelLayout = new javax.swing.GroupLayout(navPanel);
         navPanel.setLayout(navPanelLayout);
@@ -240,11 +239,10 @@ public class Doors extends javax.swing.JFrame {
                 .addGroup(navPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(lblLogout)
                     .addGroup(navPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                        .addComponent(lblAccounts, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(lblAccounts, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 123, Short.MAX_VALUE)
                         .addComponent(lblHome, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(lblHome2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(lblHome3, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(lblHome4, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                        .addComponent(lblReport, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addGap(22, 22, 22))
         );
         navPanelLayout.setVerticalGroup(
@@ -257,10 +255,8 @@ public class Doors extends javax.swing.JFrame {
                 .addGap(18, 18, 18)
                 .addComponent(lblHome2)
                 .addGap(18, 18, 18)
-                .addComponent(lblHome3)
-                .addGap(18, 18, 18)
-                .addComponent(lblHome4)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 232, Short.MAX_VALUE)
+                .addComponent(lblReport)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(lblLogout)
                 .addGap(30, 30, 30))
         );
@@ -377,7 +373,7 @@ public class Doors extends javax.swing.JFrame {
                         .addComponent(lblEUsage)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jLabel19, javax.swing.GroupLayout.PREFERRED_SIZE, 42, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(0, 0, Short.MAX_VALUE)))
+                        .addGap(0, 21, Short.MAX_VALUE)))
                 .addContainerGap())
         );
 
@@ -674,6 +670,12 @@ public class Doors extends javax.swing.JFrame {
         
     }//GEN-LAST:event_txtEusageActionPerformed
 
+    private void lblReportMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblReportMouseClicked
+        Report report = new Report();
+        report.setVisible(true);
+        this.dispose();
+    }//GEN-LAST:event_lblReportMouseClicked
+
     /**
      * @param args the command line arguments
      */
@@ -756,9 +758,8 @@ public class Doors extends javax.swing.JFrame {
     private javax.swing.JLabel lblEusage6;
     private javax.swing.JLabel lblHome;
     private javax.swing.JLabel lblHome2;
-    private javax.swing.JLabel lblHome3;
-    private javax.swing.JLabel lblHome4;
     private javax.swing.JLabel lblLogout;
+    private javax.swing.JLabel lblReport;
     private javax.swing.JLabel lblTitle;
     private javax.swing.JLabel lblWusage;
     private javax.swing.JLabel lblw;

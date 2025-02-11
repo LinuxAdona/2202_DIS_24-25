@@ -106,8 +106,7 @@ public class Admin_DB extends javax.swing.JFrame {
         lblLogout = new javax.swing.JLabel();
         lblAccounts = new javax.swing.JLabel();
         lblDoorPage = new javax.swing.JLabel();
-        lblHome3 = new javax.swing.JLabel();
-        lblHome4 = new javax.swing.JLabel();
+        lblReport = new javax.swing.JLabel();
         contentPanel = new javax.swing.JPanel();
         heroPanel = new javax.swing.JPanel();
         lblWelcome = new javax.swing.JLabel();
@@ -174,15 +173,15 @@ public class Admin_DB extends javax.swing.JFrame {
             }
         });
 
-        lblHome3.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblHome3.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/notepad-regular-24.png"))); // NOI18N
-        lblHome3.setText(" Summary");
-        lblHome3.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-
-        lblHome4.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblHome4.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/report-solid-24.png"))); // NOI18N
-        lblHome4.setText(" Report");
-        lblHome4.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblReport.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
+        lblReport.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/report-solid-24.png"))); // NOI18N
+        lblReport.setText(" Report");
+        lblReport.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblReport.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                lblReportMouseClicked(evt);
+            }
+        });
 
         javax.swing.GroupLayout navPanelLayout = new javax.swing.GroupLayout(navPanel);
         navPanel.setLayout(navPanelLayout);
@@ -193,11 +192,10 @@ public class Admin_DB extends javax.swing.JFrame {
                 .addGroup(navPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(lblLogout)
                     .addGroup(navPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                        .addComponent(lblAccounts, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(lblAccounts, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 123, Short.MAX_VALUE)
                         .addComponent(lblHome, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(lblDoorPage, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(lblHome3, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(lblHome4, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                        .addComponent(lblReport, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addGap(22, 22, 22))
         );
         navPanelLayout.setVerticalGroup(
@@ -210,9 +208,7 @@ public class Admin_DB extends javax.swing.JFrame {
                 .addGap(18, 18, 18)
                 .addComponent(lblDoorPage)
                 .addGap(18, 18, 18)
-                .addComponent(lblHome3)
-                .addGap(18, 18, 18)
-                .addComponent(lblHome4)
+                .addComponent(lblReport)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(lblLogout)
                 .addGap(30, 30, 30))
@@ -515,6 +511,12 @@ public class Admin_DB extends javax.swing.JFrame {
         this.dispose();
     }//GEN-LAST:event_lblDoorPageMouseClicked
 
+    private void lblReportMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblReportMouseClicked
+        Report report = new Report();
+        report.setVisible(true);
+        this.dispose();
+    }//GEN-LAST:event_lblReportMouseClicked
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel cardPanel;
     private javax.swing.JPanel cardPanel1;
@@ -537,10 +539,9 @@ public class Admin_DB extends javax.swing.JFrame {
     private javax.swing.JLabel lblDoors;
     private javax.swing.JLabel lblElectricUsage;
     private javax.swing.JLabel lblHome;
-    private javax.swing.JLabel lblHome3;
-    private javax.swing.JLabel lblHome4;
     private javax.swing.JLabel lblLogout;
     private javax.swing.JLabel lblName;
+    private javax.swing.JLabel lblReport;
     private javax.swing.JLabel lblResidents;
     private javax.swing.JLabel lblWaterUsage;
     private javax.swing.JLabel lblWelcome;

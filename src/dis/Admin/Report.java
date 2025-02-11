@@ -4,6 +4,15 @@
  */
 package dis.Admin;
 
+import Database.DBConnection;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import javax.swing.JOptionPane;
+import javax.swing.table.DefaultTableModel;
+import strt.Login;
+
 /**
  *
  * @author ADMIN
@@ -15,6 +24,42 @@ public class Report extends javax.swing.JFrame {
      */
     public Report() {
         initComponents();
+        loadReport();
+    }
+    
+    private void loadReport() {
+        DefaultTableModel model = (DefaultTableModel) tbReport.getModel();
+        model.setRowCount(0); // Clear existing rows
+
+        tbReport.getTableHeader().setReorderingAllowed(false);
+
+        for (int i = 0; i < tbReport.getColumnModel().getColumnCount(); i++) {
+            tbReport.getColumnModel().getColumn(i).setResizable(false);
+        }
+
+        String query = "SELECT b.rent, b.electric_usage, b.water_usage, p.amount_paid, p.date_paid, b.due_date, b.status "
+                + "FROM Billings b "
+                + "JOIN Payments p ON b.resident_id = p.resident_id "
+                + "ORDER BY p.date_paid";
+
+        try (Connection conn = DBConnection.Connect(); PreparedStatement pstmt = conn.prepareStatement(query); ResultSet rs = pstmt.executeQuery()) {
+
+            while (rs.next()) {
+                // Create an array with the correct size (7)
+                Object[] row = new Object[7];
+                row[0] = rs.getBigDecimal("rent"); // Rent
+                row[1] = rs.getBigDecimal("electric_usage"); // Electricity Bill
+                row[2] = rs.getBigDecimal("water_usage"); // Water Bill
+                row[3] = rs.getDouble("amount_paid"); // Amount Paid
+                row[4] = rs.getDate("date_paid"); // Date Paid
+                row[5] = rs.getDate("due_date"); // Due Date
+                row[6] = rs.getString("status"); // Status
+
+                model.addRow(row); // Add the row to the table model
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Error loading Report: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     /**
@@ -39,7 +84,7 @@ public class Report extends javax.swing.JFrame {
         lblBG = new javax.swing.JLabel();
         deetPanel = new javax.swing.JPanel();
         jScrollPane1 = new javax.swing.JScrollPane();
-        tbSummary = new javax.swing.JTable();
+        tbReport = new javax.swing.JTable();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -84,7 +129,8 @@ public class Report extends javax.swing.JFrame {
         });
 
         lblHome4.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblHome4.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/report-solid-24.png"))); // NOI18N
+        lblHome4.setForeground(new java.awt.Color(0, 128, 241));
+        lblHome4.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/report-solid-24 (1).png"))); // NOI18N
         lblHome4.setText(" Report");
         lblHome4.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
@@ -151,26 +197,26 @@ public class Report extends javax.swing.JFrame {
 
         deetPanel.setBackground(new java.awt.Color(247, 247, 247));
 
-        tbSummary.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        tbSummary.setModel(new javax.swing.table.DefaultTableModel(
+        tbReport.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        tbReport.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null, null, null, null},
-                {null, null, null, null, null, null},
-                {null, null, null, null, null, null},
-                {null, null, null, null, null, null}
+                {null, null, null, null, null, null, null},
+                {null, null, null, null, null, null, null},
+                {null, null, null, null, null, null, null},
+                {null, null, null, null, null, null, null}
             },
             new String [] {
-                "Rent", "Electricity Bill", "Water Bill", "Amount Paid", "Date", "Status"
+                "Rent", "Electricity Bill", "Water Bill", "Amount Paid", "Date Paid", "Due Date", "Status"
             }
         ));
-        tbSummary.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        tbSummary.setRowHeight(30);
-        tbSummary.addMouseListener(new java.awt.event.MouseAdapter() {
+        tbReport.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        tbReport.setRowHeight(30);
+        tbReport.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
-                tbSummaryMouseClicked(evt);
+                tbReportMouseClicked(evt);
             }
         });
-        jScrollPane1.setViewportView(tbSummary);
+        jScrollPane1.setViewportView(tbReport);
 
         javax.swing.GroupLayout deetPanelLayout = new javax.swing.GroupLayout(deetPanel);
         deetPanel.setLayout(deetPanelLayout);
@@ -231,6 +277,7 @@ public class Report extends javax.swing.JFrame {
         );
 
         pack();
+        setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
 
     private void lblHomeMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblHomeMouseClicked
@@ -255,9 +302,9 @@ public class Report extends javax.swing.JFrame {
         this.dispose();
     }//GEN-LAST:event_lblDoorsMouseClicked
 
-    private void tbSummaryMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tbSummaryMouseClicked
+    private void tbReportMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tbReportMouseClicked
 
-    }//GEN-LAST:event_tbSummaryMouseClicked
+    }//GEN-LAST:event_tbReportMouseClicked
 
     /**
      * @param args the command line arguments
@@ -309,6 +356,6 @@ public class Report extends javax.swing.JFrame {
     private javax.swing.JLabel lblTitle;
     private javax.swing.JPanel mainPanel;
     private javax.swing.JPanel navPanel;
-    private javax.swing.JTable tbSummary;
+    private javax.swing.JTable tbReport;
     // End of variables declaration//GEN-END:variables
 }

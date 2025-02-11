@@ -14,6 +14,8 @@ import java.util.List;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import javax.swing.ImageIcon;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
 import strt.Login;
 
 /**
@@ -128,7 +130,6 @@ public class Resident_DB extends javax.swing.JFrame {
     
     private void displayPendingPaymentsAndDormitoryDetails() {
         String userID = getLoggedInUserID();
-        System.out.println("User  ID: " + userID);
         if (userID == null) {
             showErrorMessage("User  ID is null. Please log in again.");
             return;
@@ -162,6 +163,13 @@ public class Resident_DB extends javax.swing.JFrame {
                     txtElectric.setText("PHP " + electricUsage);
                     txtTotal.setText("PHP " + total_due);
                     txtDueDate.setText(formattedDueDate);
+
+                    // Check if the due date has passed
+                    if (dueDateSql.before(new java.sql.Date(System.currentTimeMillis()))) {
+                        // Create a notification
+                        String notificationMessage = "Your payment is overdue! Total due: PHP " + total_due;
+                        createNotification(conn, notificationMessage);
+                    }
                 } else {
                     // If no pending payments, set fields to N/A
                     txtRent.setText("N/A");
@@ -173,6 +181,17 @@ public class Resident_DB extends javax.swing.JFrame {
             }
         } catch (SQLException e) {
             showErrorMessage("Database error: " + e.getMessage());
+        }
+    }
+
+    private void createNotification(Connection conn, String message) throws SQLException {
+        String insertNotificationSql = "INSERT INTO notifications (resident_id, message, status) VALUES "
+                + "((SELECT resident_id FROM residents WHERE user_id = ?), ?, 'unread')";
+        try (PreparedStatement insertNotificationPs = conn.prepareStatement(insertNotificationSql)) {
+            insertNotificationPs.setString(1, getLoggedInUserID()
+            );
+        insertNotificationPs.setString(2, message);
+            insertNotificationPs.executeUpdate();
         }
     }
     
@@ -246,6 +265,11 @@ public class Resident_DB extends javax.swing.JFrame {
         lblNotif.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/bell-solid-24.png"))); // NOI18N
         lblNotif.setToolTipText("Notifications");
         lblNotif.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblNotif.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                lblNotifMouseClicked(evt);
+            }
+        });
 
         lblLogout.setFont(new java.awt.Font("Poppins", 0, 24)); // NOI18N
         lblLogout.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/door-open-solid-24.png"))); // NOI18N
@@ -718,12 +742,16 @@ public class Resident_DB extends javax.swing.JFrame {
                     billingPs.executeUpdate();
                 }
 
-                // Insert a new billing record with 0 usages
+                // Add one month to the existing due date
+                java.sql.Date newDueDate = new java.sql.Date(dueDate.getTime() + (30L * 24 * 60 * 60 * 1000)); // Adding 30 days
+
+                // Insert a new billing record with 0 usages and the new due date
                 String newBillingSql = "INSERT INTO billings (resident_id, rent, water_usage, electric_usage, due_date, status) "
-                        + "VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), ?, 0, 0, DATE_ADD(CURDATE(), INTERVAL 1 MONTH), 'unpaid')";
+                        + "VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), ?, 0, 0, ?, 'unpaid')";
                 try (PreparedStatement newBillingPs = conn.prepareStatement(newBillingSql)) {
                     newBillingPs.setString(1, userID);
                     newBillingPs.setDouble(2, rent); // Keep the original rent
+                    newBillingPs.setDate(3, newDueDate); // Use the new due date
                     newBillingPs.executeUpdate();
                 }
 
@@ -736,7 +764,8 @@ public class Resident_DB extends javax.swing.JFrame {
                 }
 
                 JOptionPane.showMessageDialog(this, "Payment of PHP " + paymentAmount + " accepted. The previous billing record has been marked as 'paid', and a new record has been created with 0 usages.");
-            } else { // paymentAmount > totalDue
+            } else if (paymentAmount > totalDue) {
+                // Similar changes for this scenario as well
                 // Update the existing billing record to set it as 'paid'
                 String billingUpdateSql = "UPDATE billings SET status = 'paid' WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
                 try (PreparedStatement billingPs = conn.prepareStatement(billingUpdateSql)) {
@@ -744,11 +773,15 @@ public class Resident_DB extends javax.swing.JFrame {
                     billingPs.executeUpdate();
                 }
 
-                // Insert a new billing record with 0 usages
+                // Add one month to the existing due date
+                java.sql.Date newDueDate = new java.sql.Date(dueDate.getTime() + (30L * 24 * 60 * 60 * 1000)); // Adding 30 days
+
+                // Insert a new billing record with 0 usages and the new due date
                 String newBillingSql = "INSERT INTO billings (resident_id, rent, water_usage, electric_usage, due_date, status) "
-                        + "VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), 2000, 0, 0, DATE_ADD(CURDATE(), INTERVAL 1 MONTH), 'unpaid')";
+                        + "VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), 2000, 0, 0, ?, 'unpaid')";
                 try (PreparedStatement newBillingPs = conn.prepareStatement(newBillingSql)) {
                     newBillingPs.setString(1, userID);
+                    newBillingPs.setDate(2, newDueDate); // Use the new due date
                     newBillingPs.executeUpdate();
                 }
 
@@ -775,6 +808,45 @@ public class Resident_DB extends javax.swing.JFrame {
         history.setVisible(true);
         this.dispose();
     }//GEN-LAST:event_lblHistoryMouseClicked
+
+    private void showNotifications() {
+        String userID = getLoggedInUserID();
+        if (userID == null) {
+            showErrorMessage("User  ID is null. Please log in again.");
+            return;
+        }
+
+        try (Connection conn = DBConnection.Connect()) {
+            String notificationsSql = "SELECT message, notif_date, status FROM notifications "
+                    + "WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+            try (PreparedStatement notificationsPs = conn.prepareStatement(notificationsSql)) {
+                notificationsPs.setString(1, userID);
+                ResultSet notificationsRs = notificationsPs.executeQuery();
+
+                // Create a table to display notifications
+                String[] columnNames = {"Message", "Date", "Status"};
+                ArrayList<Object[]> data = new ArrayList<>();
+                while (notificationsRs.next()) {
+                    String message = notificationsRs.getString("message");
+                    java.sql.Timestamp notifDate = notificationsRs.getTimestamp("notif_date");
+                    String status = notificationsRs.getString("status");
+                    data.add(new Object[]{message, notifDate, status});
+                }
+
+                // Show the notifications in a dialog
+                JTable notificationsTable = new JTable(data.toArray(new Object[0][]), columnNames);
+                notificationsTable.setFillsViewportHeight(true);
+                JScrollPane scrollPane = new JScrollPane(notificationsTable);
+                JOptionPane.showMessageDialog(this, scrollPane, "Notifications", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (SQLException e) {
+            showErrorMessage("Database error: " + e.getMessage());
+        }
+    }
+    
+    private void lblNotifMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblNotifMouseClicked
+        showNotifications();
+    }//GEN-LAST:event_lblNotifMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel btmPanel;

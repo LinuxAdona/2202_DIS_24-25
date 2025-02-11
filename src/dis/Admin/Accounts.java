@@ -279,8 +279,7 @@ public class Accounts extends javax.swing.JFrame {
         lblLogout = new javax.swing.JLabel();
         lblHome1 = new javax.swing.JLabel();
         lblDoors = new javax.swing.JLabel();
-        lblHome3 = new javax.swing.JLabel();
-        lblHome4 = new javax.swing.JLabel();
+        lblReport = new javax.swing.JLabel();
         contentPanel = new javax.swing.JPanel();
         heroPanel = new javax.swing.JPanel();
         lblTitle = new javax.swing.JLabel();
@@ -363,15 +362,15 @@ public class Accounts extends javax.swing.JFrame {
             }
         });
 
-        lblHome3.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblHome3.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/notepad-regular-24.png"))); // NOI18N
-        lblHome3.setText(" Summary");
-        lblHome3.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-
-        lblHome4.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblHome4.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/report-solid-24.png"))); // NOI18N
-        lblHome4.setText(" Report");
-        lblHome4.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblReport.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
+        lblReport.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/report-solid-24.png"))); // NOI18N
+        lblReport.setText(" Report");
+        lblReport.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblReport.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                lblReportMouseClicked(evt);
+            }
+        });
 
         javax.swing.GroupLayout navPanelLayout = new javax.swing.GroupLayout(navPanel);
         navPanel.setLayout(navPanelLayout);
@@ -382,11 +381,10 @@ public class Accounts extends javax.swing.JFrame {
                 .addGroup(navPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(lblLogout)
                     .addGroup(navPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                        .addComponent(lblHome1, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(lblHome1, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 123, Short.MAX_VALUE)
                         .addComponent(lblHome, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(lblDoors, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(lblHome3, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(lblHome4, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                        .addComponent(lblReport, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addGap(22, 22, 22))
         );
         navPanelLayout.setVerticalGroup(
@@ -399,10 +397,8 @@ public class Accounts extends javax.swing.JFrame {
                 .addGap(18, 18, 18)
                 .addComponent(lblDoors)
                 .addGap(18, 18, 18)
-                .addComponent(lblHome3)
-                .addGap(18, 18, 18)
-                .addComponent(lblHome4)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 232, Short.MAX_VALUE)
+                .addComponent(lblReport)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(lblLogout)
                 .addGap(30, 30, 30))
         );
@@ -569,7 +565,7 @@ public class Accounts extends javax.swing.JFrame {
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap(7, Short.MAX_VALUE)
                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(lblElectricUsage)
                     .addComponent(txtEusage, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -734,7 +730,7 @@ public class Accounts extends javax.swing.JFrame {
                 .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(deetPanelLayout.createSequentialGroup()
                         .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 200, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 7, Short.MAX_VALUE))
                     .addGroup(deetPanelLayout.createSequentialGroup()
                         .addComponent(btnDelete, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -944,6 +940,12 @@ public class Accounts extends javax.swing.JFrame {
         this.dispose();
     }//GEN-LAST:event_lblDoorsMouseClicked
 
+    private void lblReportMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblReportMouseClicked
+        Report report = new Report();
+        report.setVisible(true);
+        this.dispose();
+    }//GEN-LAST:event_lblReportMouseClicked
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnAssign;
     private javax.swing.JButton btnDelete;
@@ -973,11 +975,10 @@ public class Accounts extends javax.swing.JFrame {
     private javax.swing.JLabel lblElectricUsage6;
     private javax.swing.JLabel lblHome;
     private javax.swing.JLabel lblHome1;
-    private javax.swing.JLabel lblHome3;
-    private javax.swing.JLabel lblHome4;
     private javax.swing.JLabel lblLogout;
     private javax.swing.JLabel lblName;
     private javax.swing.JLabel lblPfp;
+    private javax.swing.JLabel lblReport;
     private javax.swing.JLabel lblTitle;
     private javax.swing.JPanel mainPanel;
     private javax.swing.JPanel navPanel;
