@@ -9,13 +9,11 @@ import java.sql.SQLException;
 import java.sql.ResultSet;
 import java.sql.PreparedStatement;
 import javax.swing.JOptionPane;
-import obj.UserSession;
 import Database.DBConnection;
-import java.awt.Color;
-import java.awt.Font;
+import java.util.List;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import javax.swing.ImageIcon;
-import javax.swing.JLabel;
 import strt.Login;
 
 /**
@@ -80,19 +78,47 @@ public class Resident_DB extends javax.swing.JFrame {
             showErrorMessage("Database error: " + e.getMessage());
         }
     }
-    
+
     private void loadCards() {
+        String userID = getLoggedInUserID();
+        if (userID == null) {
+            showErrorMessage("User  ID is null. Please log in again.");
+            return;
+        }
+
         try (Connection conn = DBConnection.Connect()) {
-            String eSql = "SELECT IFNULL(SUM(meter_usage), 0) AS electric_usage FROM meters WHERE meter_type = 'electric'";
-            String wSql = "SELECT IFNULL(SUM(meter_usage), 0) AS water_usage FROM meters WHERE meter_type = 'water'";
-            try (PreparedStatement psE = conn.prepareStatement(eSql); PreparedStatement psW = conn.prepareStatement(wSql); ResultSet rsE = psE.executeQuery(); ResultSet rsW = psW.executeQuery()) {
-
-                if (rsE.next()) {
-                    lblEusage.setText(rsE.getString("electric_usage") + " kwh");
+            // Get the resident_id for the logged-in user
+            String residentIdSql = "SELECT resident_id FROM residents WHERE user_id = ?";
+            int residentId = -1; // Default value if not found
+            try (PreparedStatement residentPs = conn.prepareStatement(residentIdSql)) {
+                residentPs.setString(1, userID);
+                ResultSet residentRs = residentPs.executeQuery();
+                if (residentRs.next()) {
+                    residentId = residentRs.getInt("resident_id");
+                } else {
+                    showErrorMessage("Resident ID not found for the logged-in user.");
+                    return;
                 }
+            }
 
-                if (rsW.next()) {
-                    lblWusage.setText(rsW.getString("water_usage") + " m³");
+            // Now get the electric and water usage for the specific resident
+            String eSql = "SELECT IFNULL(SUM(meter_usage), 0) AS electric_usage FROM meters WHERE meter_type = 'electric' AND resident_id = ?";
+            String wSql = "SELECT IFNULL(SUM(meter_usage), 0) AS water_usage FROM meters WHERE meter_type = 'water' AND resident_id = ?";
+
+            try (PreparedStatement psE = conn.prepareStatement(eSql); PreparedStatement psW = conn.prepareStatement(wSql)) {
+
+                psE.setInt(1, residentId);
+                psW.setInt(1, residentId);
+
+                try (ResultSet rsE = psE.executeQuery(); ResultSet rsW = psW.executeQuery()) {
+
+                    if (rsE.next()) {
+                        lblEusage.setText(rsE.getString("electric_usage") + " kwh");
+                    }
+
+                    if (rsW.next()) {
+                        lblWusage.setText(rsW.getString("water_usage") + " m³");
+                    }
                 }
             }
         } catch (SQLException e) {
@@ -102,6 +128,7 @@ public class Resident_DB extends javax.swing.JFrame {
     
     private void displayPendingPaymentsAndDormitoryDetails() {
         String userID = getLoggedInUserID();
+        System.out.println("User  ID: " + userID);
         if (userID == null) {
             showErrorMessage("User  ID is null. Please log in again.");
             return;
@@ -109,15 +136,19 @@ public class Resident_DB extends javax.swing.JFrame {
 
         try (Connection conn = DBConnection.Connect()) {
             SimpleDateFormat dateFormat = new SimpleDateFormat("MMMM dd, yyyy");
+
             // Fetch pending payments
-            String billingSql = "SELECT rent, water_usage, electric_usage, total_due, due_date FROM billings WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?) AND status = 'unpaid'";
+            String billingSql = "SELECT rent, water_usage, electric_usage, total_due, due_date, status "
+                    + "FROM billings "
+                    + "WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?) "
+                    + "AND status = 'unpaid'";
             try (PreparedStatement billingPs = conn.prepareStatement(billingSql)) {
                 billingPs.setString(1, userID);
                 ResultSet billingRs = billingPs.executeQuery();
 
-                boolean hasPendingPayments = false;
-                while (billingRs.next()) {
-                    hasPendingPayments = true;
+                // Check if there are pending payments
+                if (billingRs.next()) {
+                    // If there are pending payments, retrieve the values
                     double rent = billingRs.getDouble("rent");
                     double waterUsage = billingRs.getDouble("water_usage");
                     double electricUsage = billingRs.getDouble("electric_usage");
@@ -125,40 +156,17 @@ public class Resident_DB extends javax.swing.JFrame {
                     java.sql.Date dueDateSql = billingRs.getDate("due_date");
                     String formattedDueDate = dateFormat.format(dueDateSql);
 
-                    txtElectric.setEditable(false);
-                    txtElectric.setBackground(Color.WHITE);
-                    txtElectric.setDisabledTextColor(Color.BLACK);
-                    
-                    txtDueDate.setEditable(false);
-                    txtDueDate.setBackground(Color.WHITE);
-                    txtDueDate.setDisabledTextColor(Color.BLACK);
-                    txtElectric.setDisabledTextColor(Color.BLACK);
-                    
-                    txtRent.setEditable(false);
-                    txtRent.setBackground(Color.WHITE);
-                    txtRent.setDisabledTextColor(Color.BLACK);
-                    
-                    txtWater.setEditable(false);
-                    txtWater.setBackground(Color.WHITE);
-                    txtWater.setDisabledTextColor(Color.BLACK);
-                    
-                    txtTotal.setEditable(false);
-                    txtTotal.setBackground(Color.WHITE);
-                    txtTotal.setDisabledTextColor(Color.BLACK);
-                    
+                    // Set the text fields with the retrieved values
                     txtRent.setText("PHP " + rent);
                     txtWater.setText("PHP " + waterUsage);
-                    txtTotal.setText("PHP " + total_due);
                     txtElectric.setText("PHP " + electricUsage);
+                    txtTotal.setText("PHP " + total_due);
                     txtDueDate.setText(formattedDueDate);
-                }
-
-                if (!hasPendingPayments) {
-                    lblEusage.setText("N/A kwh");
-                    lblWusage.setText("N/A m³");
-                    txtElectric.setText("N/A");
-                    txtWater.setText("N/A");
+                } else {
+                    // If no pending payments, set fields to N/A
                     txtRent.setText("N/A");
+                    txtWater.setText("N/A");
+                    txtElectric.setText("N/A");
                     txtTotal.setText("N/A");
                     txtDueDate.setText("N/A");
                 }
@@ -228,6 +236,11 @@ public class Resident_DB extends javax.swing.JFrame {
         lblHistory.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
         lblHistory.setText(" History");
         lblHistory.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblHistory.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                lblHistoryMouseClicked(evt);
+            }
+        });
 
         lblNotif.setFont(new java.awt.Font("Poppins", 0, 24)); // NOI18N
         lblNotif.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/bell-solid-24.png"))); // NOI18N
@@ -249,6 +262,11 @@ public class Resident_DB extends javax.swing.JFrame {
         lblProfile.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/user-circle-solid-24.png"))); // NOI18N
         lblProfile.setText(" Profile");
         lblProfile.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblProfile.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                lblProfileMouseClicked(evt);
+            }
+        });
 
         javax.swing.GroupLayout navPanelLayout = new javax.swing.GroupLayout(navPanel);
         navPanel.setLayout(navPanelLayout);
@@ -313,6 +331,11 @@ public class Resident_DB extends javax.swing.JFrame {
         btnPayment.setText(" Pay Bills");
         btnPayment.setToolTipText("Request Maintenance");
         btnPayment.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        btnPayment.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnPaymentActionPerformed(evt);
+            }
+        });
 
         lblTotal2.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
         lblTotal2.setText("Rent:");
@@ -514,19 +537,19 @@ public class Resident_DB extends javax.swing.JFrame {
             .addGroup(contentPanelLayout.createSequentialGroup()
                 .addGroup(contentPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(contentPanelLayout.createSequentialGroup()
+                        .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED))
+                    .addGroup(contentPanelLayout.createSequentialGroup()
                         .addGap(20, 20, 20)
-                        .addGroup(contentPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                        .addGroup(contentPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(lblPfp, javax.swing.GroupLayout.PREFERRED_SIZE, 170, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addGroup(contentPanelLayout.createSequentialGroup()
                                 .addComponent(lblWelcome)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(lblName)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addComponent(lblDoor, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addComponent(lblPfp, javax.swing.GroupLayout.PREFERRED_SIZE, 170, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                    .addGroup(contentPanelLayout.createSequentialGroup()
-                        .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
+                                .addGap(23, 23, 23)
+                                .addComponent(lblDoor, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addComponent(btmPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 245, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
 
@@ -573,6 +596,185 @@ public class Resident_DB extends javax.swing.JFrame {
     private void txtWaterActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtWaterActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_txtWaterActionPerformed
+
+    private void lblProfileMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblProfileMouseClicked
+        Profile profile = new Profile();
+        profile.setVisible(true);
+        this.dispose();
+    }//GEN-LAST:event_lblProfileMouseClicked
+
+    private void btnPaymentActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnPaymentActionPerformed
+        String userID = getLoggedInUserID();
+        if (userID == null) {
+            showErrorMessage("User  ID is null. Please log in again.");
+            return;
+        }
+
+        // Get the total due amount from the text field
+        String totalDueText = txtTotal.getText().replace("PHP ", "").trim();
+        double totalDue = 0;
+        try {
+            totalDue = Double.parseDouble(totalDueText);
+        } catch (NumberFormatException e) {
+            showErrorMessage("Invalid total due amount.");
+            return;
+        }
+
+        // Prompt for payment amount
+        String paymentInput = JOptionPane.showInputDialog(this, "Enter the amount to pay:", "Payment", JOptionPane.QUESTION_MESSAGE);
+        if (paymentInput == null) {
+            return; // User canceled the input
+        }
+
+        double paymentAmount;
+        try {
+            paymentAmount = Double.parseDouble(paymentInput);
+        } catch (NumberFormatException e) {
+            showErrorMessage("Invalid payment amount.");
+            return;
+        }
+
+        if (paymentAmount <= 0) {
+            showErrorMessage("Payment amount must be greater than zero.");
+            return;
+        }
+
+        // Check payment conditions
+        try (Connection conn = DBConnection.Connect()) {
+            // Fetch current billing details for the logged-in user
+            String billingSql = "SELECT rent, water_usage, electric_usage, due_date FROM billings WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+            double rent = 0, waterUsage = 0, electricUsage = 0;
+            java.sql.Date dueDate = null;
+
+            try (PreparedStatement billingPs = conn.prepareStatement(billingSql)) {
+                billingPs.setString(1, userID);
+                ResultSet billingRs = billingPs.executeQuery();
+                if (billingRs.next()) {
+                    rent = billingRs.getDouble("rent");
+                    waterUsage = billingRs.getDouble("water_usage");
+                    electricUsage = billingRs.getDouble("electric_usage");
+                    dueDate = billingRs.getDate("due_date");
+                }
+            }
+
+            // Determine which options to show based on the payment amount
+            List<String> optionsList = new ArrayList<>();
+            if (paymentAmount <= rent) {
+                optionsList.add("Rent");
+            }
+            if (paymentAmount <= waterUsage) {
+                optionsList.add("Water Usage");
+            }
+            if (paymentAmount <= electricUsage) {
+                optionsList.add("Electric Usage");
+            }
+
+            // If no options are available, inform the user
+            if (optionsList.isEmpty() && paymentAmount != totalDue) {
+                JOptionPane.showMessageDialog(this, "Payment amount exceeds all billing options. Please pay the total due amount.");
+                return;
+            }
+
+            // Handle payment scenarios
+            if (paymentAmount < totalDue) {
+                // Ask user where to apply the payment
+                String selectedOption = (String) JOptionPane.showInputDialog(this, "Where would you like to apply the payment?", "Payment Allocation", JOptionPane.QUESTION_MESSAGE, null, optionsList.toArray(), optionsList.get(0));
+
+                if (selectedOption == null) {
+                    return; // User canceled the selection
+                }
+
+                // Update the selected usage
+                String updateUsageSql = "UPDATE billings SET ";
+                if (selectedOption.equals("Rent")) {
+                    updateUsageSql += "rent = rent - ? ";
+                } else if (selectedOption.equals("Water Usage")) {
+                    updateUsageSql += "water_usage = water_usage - ? ";
+                } else if (selectedOption.equals("Electric Usage")) {
+                    updateUsageSql += "electric_usage = electric_usage - ? ";
+                }
+                updateUsageSql += "WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+
+                try (PreparedStatement updateUsagePs = conn.prepareStatement(updateUsageSql)) {
+                    updateUsagePs.setDouble(1, paymentAmount);
+                    updateUsagePs.setString(2, userID);
+                    updateUsagePs.executeUpdate();
+                }
+
+                // Insert payment record
+                String paymentSql = "INSERT INTO payments (resident_id, amount_paid, date_paid) VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), ?, CURDATE())";
+                try (PreparedStatement paymentPs = conn.prepareStatement(paymentSql)) {
+                    paymentPs.setString(1, userID);
+                    paymentPs.setDouble(2, paymentAmount);
+                    paymentPs.executeUpdate();
+                }
+
+                JOptionPane.showMessageDialog(this, "Payment of PHP " + paymentAmount + " applied to " + selectedOption + ".");
+            } else if (paymentAmount == totalDue) {
+                // Update the existing billing record to set it as 'paid'
+                String billingUpdateSql = "UPDATE billings SET status = 'paid' WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+                try (PreparedStatement billingPs = conn.prepareStatement(billingUpdateSql)) {
+                    billingPs.setString(1, userID);
+                    billingPs.executeUpdate();
+                }
+
+                // Insert a new billing record with 0 usages
+                String newBillingSql = "INSERT INTO billings (resident_id, rent, water_usage, electric_usage, due_date, status) "
+                        + "VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), ?, 0, 0, DATE_ADD(CURDATE(), INTERVAL 1 MONTH), 'unpaid')";
+                try (PreparedStatement newBillingPs = conn.prepareStatement(newBillingSql)) {
+                    newBillingPs.setString(1, userID);
+                    newBillingPs.setDouble(2, rent); // Keep the original rent
+                    newBillingPs.executeUpdate();
+                }
+
+                // Insert payment record
+                String paymentSql = "INSERT INTO payments (resident_id, amount_paid, date_paid) VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), ?, CURDATE())";
+                try (PreparedStatement paymentPs = conn.prepareStatement(paymentSql)) {
+                    paymentPs.setString(1, userID);
+                    paymentPs.setDouble(2, paymentAmount);
+                    paymentPs.executeUpdate();
+                }
+
+                JOptionPane.showMessageDialog(this, "Payment of PHP " + paymentAmount + " accepted. The previous billing record has been marked as 'paid', and a new record has been created with 0 usages.");
+            } else { // paymentAmount > totalDue
+                // Update the existing billing record to set it as 'paid'
+                String billingUpdateSql = "UPDATE billings SET status = 'paid' WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+                try (PreparedStatement billingPs = conn.prepareStatement(billingUpdateSql)) {
+                    billingPs.setString(1, userID);
+                    billingPs.executeUpdate();
+                }
+
+                // Insert a new billing record with 0 usages
+                String newBillingSql = "INSERT INTO billings (resident_id, rent, water_usage, electric_usage, due_date, status) "
+                        + "VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), 2000, 0, 0, DATE_ADD(CURDATE(), INTERVAL 1 MONTH), 'unpaid')";
+                try (PreparedStatement newBillingPs = conn.prepareStatement(newBillingSql)) {
+                    newBillingPs.setString(1, userID);
+                    newBillingPs.executeUpdate();
+                }
+
+                // Insert payment record for the total due amount
+                String paymentSql = "INSERT INTO payments (resident_id, amount_paid, date_paid) VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), ?, CURDATE())";
+                try (PreparedStatement paymentPs = conn.prepareStatement(paymentSql)) {
+                    paymentPs.setString(1, userID);
+                    paymentPs.setDouble(2, totalDue); // Only accept the amount equal to the total due
+                    paymentPs.executeUpdate();
+                }
+
+                // Calculate change
+                double change = paymentAmount - totalDue;
+                JOptionPane.showMessageDialog(this, "Payment of PHP " + totalDue + " accepted. Change: PHP " + change + ". All usages have been set to 0, and rent is now PHP 2000 with a new due date in 1 month.");
+            }
+            displayPendingPaymentsAndDormitoryDetails(); // Refresh the displayed information
+        } catch (SQLException e) {
+            showErrorMessage("Database error: " + e.getMessage());
+        }
+    }//GEN-LAST:event_btnPaymentActionPerformed
+
+    private void lblHistoryMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblHistoryMouseClicked
+        History history = new History();
+        history.setVisible(true);
+        this.dispose();
+    }//GEN-LAST:event_lblHistoryMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel btmPanel;

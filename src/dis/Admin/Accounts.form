@@ -75,7 +75,7 @@
                           <Group type="103" alignment="0" groupAlignment="1" max="-2" attributes="0">
                               <Component id="lblHome1" alignment="0" max="32767" attributes="0"/>
                               <Component id="lblHome" alignment="0" max="32767" attributes="0"/>
-                              <Component id="lblHome2" alignment="0" max="32767" attributes="0"/>
+                              <Component id="lblDoors" alignment="0" max="32767" attributes="0"/>
                               <Component id="lblHome3" alignment="0" max="32767" attributes="0"/>
                               <Component id="lblHome4" alignment="0" max="32767" attributes="0"/>
                           </Group>
@@ -92,7 +92,7 @@
                       <EmptySpace min="-2" pref="91" max="-2" attributes="0"/>
                       <Component id="lblHome1" min="-2" max="-2" attributes="0"/>
                       <EmptySpace type="separate" max="-2" attributes="0"/>
-                      <Component id="lblHome2" min="-2" max="-2" attributes="0"/>
+                      <Component id="lblDoors" min="-2" max="-2" attributes="0"/>
                       <EmptySpace type="separate" max="-2" attributes="0"/>
                       <Component id="lblHome3" min="-2" max="-2" attributes="0"/>
                       <EmptySpace type="separate" max="-2" attributes="0"/>
@@ -157,7 +157,7 @@
                 </Property>
               </Properties>
             </Component>
-            <Component class="javax.swing.JLabel" name="lblHome2">
+            <Component class="javax.swing.JLabel" name="lblDoors">
               <Properties>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Poppins" size="18" style="0"/>
@@ -170,6 +170,9 @@
                   <Color id="Hand Cursor"/>
                 </Property>
               </Properties>
+              <Events>
+                <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="lblDoorsMouseClicked"/>
+              </Events>
             </Component>
             <Component class="javax.swing.JLabel" name="lblHome3">
               <Properties>
@@ -294,7 +297,7 @@
                                   <Component id="jScrollPane1" min="-2" pref="685" max="-2" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
                                   <Group type="103" groupAlignment="0" attributes="0">
-                                      <Component id="btnDelete1" max="32767" attributes="0"/>
+                                      <Component id="btnMessage" max="32767" attributes="0"/>
                                       <Component id="btnDelete" alignment="0" max="32767" attributes="0"/>
                                       <Component id="cbDoor" alignment="0" max="32767" attributes="0"/>
                                       <Group type="102" attributes="0">
@@ -322,7 +325,7 @@
                               <Group type="102" attributes="0">
                                   <Component id="btnDelete" min="-2" pref="40" max="-2" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
-                                  <Component id="btnDelete1" min="-2" pref="40" max="-2" attributes="0"/>
+                                  <Component id="btnMessage" min="-2" pref="40" max="-2" attributes="0"/>
                                   <EmptySpace max="32767" attributes="0"/>
                                   <Group type="103" groupAlignment="0" attributes="0">
                                       <Group type="102" alignment="1" attributes="0">
@@ -355,7 +358,7 @@
                     <Component class="javax.swing.JTable" name="tbAccounts">
                       <Properties>
                         <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Poppins" size="12" style="0"/>
+                          <Font name="Poppins" size="14" style="0"/>
                         </Property>
                         <Property name="model" type="javax.swing.table.TableModel" editor="org.netbeans.modules.form.editors2.TableModelEditor">
                           <Table columnCount="5" rowCount="4">
@@ -395,10 +398,17 @@
                             </Column>
                           </TableColumnModel>
                         </Property>
+                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                          <Color id="Hand Cursor"/>
+                        </Property>
+                        <Property name="rowHeight" type="int" value="30"/>
                         <Property name="tableHeader" type="javax.swing.table.JTableHeader" editor="org.netbeans.modules.form.editors2.JTableHeaderEditor">
                           <TableHeader reorderingAllowed="true" resizingAllowed="true"/>
                         </Property>
                       </Properties>
+                      <Events>
+                        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="tbAccountsMouseClicked"/>
+                      </Events>
                     </Component>
                   </SubComponents>
                 </Container>
@@ -491,7 +501,7 @@
                                       </Group>
                                   </Group>
                               </Group>
-                              <EmptySpace type="separate" max="-2" attributes="0"/>
+                              <EmptySpace max="-2" attributes="0"/>
                               <Component id="lblName" min="-2" max="-2" attributes="0"/>
                               <EmptySpace max="32767" attributes="0"/>
                           </Group>
@@ -514,9 +524,8 @@
                     <Component class="javax.swing.JLabel" name="lblName">
                       <Properties>
                         <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Poppins" size="24" style="1"/>
+                          <Font name="Poppins" size="36" style="1"/>
                         </Property>
-                        <Property name="text" type="java.lang.String" value="Name Name Name"/>
                       </Properties>
                     </Component>
                     <Component class="javax.swing.JLabel" name="lblDoor">
@@ -557,8 +566,10 @@
                                       </Group>
                                       <Group type="102" attributes="0">
                                           <Component id="lblElectricUsage6" min="-2" max="-2" attributes="0"/>
-                                          <EmptySpace min="-2" pref="5" max="-2" attributes="0"/>
-                                          <Component id="txtTotal" max="32767" attributes="0"/>
+                                          <EmptySpace max="32767" attributes="0"/>
+                                          <Component id="txtTotal" min="-2" pref="140" max="-2" attributes="0"/>
+                                          <EmptySpace max="-2" attributes="0"/>
+                                          <Component id="cbStatus" max="32767" attributes="0"/>
                                       </Group>
                                       <Group type="102" alignment="0" attributes="0">
                                           <Component id="lblElectricUsage2" min="-2" max="-2" attributes="0"/>
@@ -622,6 +633,7 @@
                                   <Group type="103" groupAlignment="3" attributes="0">
                                       <Component id="lblElectricUsage6" alignment="3" min="-2" max="-2" attributes="0"/>
                                       <Component id="txtTotal" alignment="3" min="-2" pref="30" max="-2" attributes="0"/>
+                                      <Component id="cbStatus" alignment="3" min="-2" pref="30" max="-2" attributes="0"/>
                                   </Group>
                                   <EmptySpace min="-2" pref="12" max="-2" attributes="0"/>
                               </Group>
@@ -741,6 +753,19 @@
                             <Property name="focusable" type="boolean" value="false"/>
                           </Properties>
                         </Component>
+                        <Component class="javax.swing.JComboBox" name="cbStatus">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Poppins" size="12" style="0"/>
+                            </Property>
+                            <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.editors2.ComboBoxModelEditor">
+                              <StringArray count="0"/>
+                            </Property>
+                          </Properties>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
+                          </AuxValues>
+                        </Component>
                       </SubComponents>
                     </Container>
                     <Component class="javax.swing.JLabel" name="lblContact">
@@ -789,7 +814,7 @@
                     <Component class="javax.swing.JLabel" name="lblAddress">
                       <Properties>
                         <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Poppins" size="18" style="0"/>
+                          <Font name="Poppins" size="14" style="0"/>
                         </Property>
                         <Property name="text" type="java.lang.String" value="Address"/>
                         <Property name="toolTipText" type="java.lang.String" value="Room Number"/>
@@ -836,7 +861,7 @@
                     <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="btnAssignActionPerformed"/>
                   </Events>
                 </Component>
-                <Component class="javax.swing.JButton" name="btnDelete1">
+                <Component class="javax.swing.JButton" name="btnMessage">
                   <Properties>
                     <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                       <Font name="Poppins" size="12" style="0"/>
@@ -849,6 +874,9 @@
                       <Color id="Hand Cursor"/>
                     </Property>
                   </Properties>
+                  <Events>
+                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="btnMessageActionPerformed"/>
+                  </Events>
                 </Component>
               </SubComponents>
             </Container>

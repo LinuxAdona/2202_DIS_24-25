@@ -4,7 +4,17 @@
  */
 package dis.Admin;
 
+import Database.DBConnection;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
+import javax.swing.JTable;
+import javax.swing.table.DefaultTableModel;
 import strt.Login;
 
 /**
@@ -18,8 +28,242 @@ public class Accounts extends javax.swing.JFrame {
      */
     public Accounts() {
         initComponents();
+        loadAccounts();
+        loadDoors();
+    }
+    
+    private void showErrorMessage(String message) {
+        JOptionPane.showMessageDialog(this, message, "Login Error", JOptionPane.ERROR_MESSAGE);
     }
 
+    private void loadAccounts() {
+        DefaultTableModel model = (DefaultTableModel) tbAccounts.getModel();
+        model.setRowCount(0);
+
+        tbAccounts.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        tbAccounts.getTableHeader().setReorderingAllowed(false);
+
+        for (int i = 0; i < tbAccounts.getColumnModel().getColumnCount(); i++) {
+            tbAccounts.getColumnModel().getColumn(i).setResizable(false);
+        }
+
+        try (Connection conn = DBConnection.Connect()) {
+            String userSql = "SELECT u.user_id "
+                           + "FROM users u "
+                           + "LEFT JOIN admins a ON u.user_id = a.user_id "
+                           + "WHERE a.user_id IS NULL "
+                           + "ORDER BY u.user_id ASC";
+            String profilesSql = "SELECT * FROM profiles";
+            String doorSql = "SELECT * FROM doors";
+
+            try (PreparedStatement psUser = conn.prepareStatement(userSql); ResultSet rsUser = psUser.executeQuery()) {
+
+                while (rsUser.next()) {
+                    String userId = rsUser.getString("user_id");
+
+                    String profileSql = profilesSql + " WHERE user_id = ?";
+                    try (PreparedStatement psProfile = conn.prepareStatement(profileSql)) {
+                        psProfile.setString(1, userId);
+                        ResultSet rsProfile = psProfile.executeQuery();
+
+                        if (rsProfile.next()) {
+                            String name = rsProfile.getString("first_name") + " " + rsProfile.getString("last_name");
+                            String contact = rsProfile.getString("contact_number");
+                            String sex = rsProfile.getString("sex");
+                            Date dobDate = rsProfile.getDate("date_of_birth");
+                            SimpleDateFormat newFormat = new SimpleDateFormat("MM/dd/yyyy");
+                            String dob = newFormat.format(dobDate);
+
+                            String doorSqlQuery = doorSql + " WHERE door_id = ?";
+                            try (PreparedStatement psDoor = conn.prepareStatement(doorSqlQuery)) {
+                                psDoor.setString(1, rsProfile.getString("door_id"));
+                                ResultSet rsDoor = psDoor.executeQuery();
+
+                                String doorNumber = "";
+                                if (rsDoor.next()) {
+                                    doorNumber = rsDoor.getString("door_number");
+                                }
+
+                                model.addRow(new Object[]{userId, name, contact, sex, doorNumber});
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (model.getRowCount() < 6) {
+                tbAccounts.getColumnModel().getColumn(0).setPreferredWidth(40);
+                tbAccounts.getColumnModel().getColumn(1).setPreferredWidth(397);
+                tbAccounts.getColumnModel().getColumn(2).setPreferredWidth(120);
+                tbAccounts.getColumnModel().getColumn(3).setPreferredWidth(80);
+                tbAccounts.getColumnModel().getColumn(4).setPreferredWidth(42);
+            } else {
+                tbAccounts.getColumnModel().getColumn(0).setPreferredWidth(40);
+                tbAccounts.getColumnModel().getColumn(1).setPreferredWidth(380);
+                tbAccounts.getColumnModel().getColumn(2).setPreferredWidth(120);
+                tbAccounts.getColumnModel().getColumn(3).setPreferredWidth(80);
+                tbAccounts.getColumnModel().getColumn(4).setPreferredWidth(43);
+            }
+        } catch (SQLException e) {
+            showErrorMessage("Database error: " + e.getMessage());
+        }
+    }
+    
+    private void updateFields(String userId) {
+        try (Connection conn = DBConnection.Connect()) {
+            String profilesSql = "SELECT * FROM profiles WHERE user_id = ?";
+            String doorSql = "SELECT * FROM doors WHERE door_id = (SELECT door_id FROM profiles WHERE user_id = ?)";
+            String addressSql = "SELECT * FROM address WHERE address_id = (SELECT address_id FROM profiles WHERE user_id = ?)";
+            String billSql = "SELECT * FROM billings WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+            String meterSql = "SELECT * FROM meters WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+
+            try (PreparedStatement psProfile = conn.prepareStatement(profilesSql)) {
+                psProfile.setString(1, userId);
+                ResultSet rsProfile = psProfile.executeQuery();
+
+                if (rsProfile.next()) {
+                    String name = rsProfile.getString("first_name") + " " + rsProfile.getString("last_name");
+                    String contact = rsProfile.getString("contact_number");
+                    String sex = rsProfile.getString("sex");
+                    Date dobDate = rsProfile.getDate("date_of_birth");
+                    SimpleDateFormat newFormat = new SimpleDateFormat("MM/dd/yyyy");
+                    String dob = newFormat.format(dobDate);
+
+                    byte[] imgBytes = rsProfile.getBytes("profile_picture");
+                    if (imgBytes != null) {
+                        ImageIcon profilePicture = new ImageIcon(imgBytes);
+                        lblPfp.setIcon(profilePicture);
+                    } else {
+                        lblPfp.setIcon(new ImageIcon(getClass().getResource("/assets/default-profile.png")));
+                    }
+                    lblName.setText(name);
+                    lblContact.setText(contact);
+                    txtSex.setText(sex);
+                    txtDob.setText(dob);
+
+                    String doorNumber = "N/A";
+                    try (PreparedStatement psDoor = conn.prepareStatement(doorSql)) {
+                        psDoor.setString(1, userId);
+                        ResultSet rsDoor = psDoor.executeQuery();
+
+                        if (rsDoor.next()) {
+                            doorNumber = rsDoor.getString("door_number");
+                        }
+                    }
+                    lblDoor.setText("Door " + doorNumber);
+
+                    try (PreparedStatement psAddress = conn.prepareStatement(addressSql)) {
+                        psAddress.setString(1, userId);
+                        ResultSet rsAddress = psAddress.executeQuery();
+
+                        if (rsAddress.next()) {
+                            String city = rsAddress.getString("city");
+                            String municipality = rsAddress.getString("municipality");
+                            String barangay = rsAddress.getString("barangay");
+
+                            String fullAddress = barangay + ", " + municipality + ", " + city;
+                            lblAddress.setText(fullAddress);
+                        }
+                    }
+
+                    try (PreparedStatement psBill = conn.prepareStatement(billSql)) {
+                        psBill.setString(1, userId);
+                        ResultSet rsBill = psBill.executeQuery();
+
+                        if (rsBill.next()) {
+                            String rent = rsBill.getString("rent");
+                            String waterUsage = rsBill.getString("water_usage");
+                            String electricUsage = rsBill.getString("electric_usage");
+                            String totalDue = rsBill.getString("total_due");
+                            java.sql.Date dueDateSql = rsBill.getDate("due_date"); // Retrieve as java.sql.Date
+                            String formattedDueDate = (dueDateSql != null) ? newFormat.format(dueDateSql) : "N/A"; // Format only if not null
+                            String status = rsBill.getString("status");
+
+                            txtRent.setText(rent);
+                            txtWbill.setText("PHP " + waterUsage);
+                            txtEbill.setText("PHP " + electricUsage);
+                            txtTotal.setText("PHP " + totalDue);
+                            txtDueDate.setText(formattedDueDate);
+
+                            cbStatus.removeAllItems();
+                            cbStatus.addItem("Paid");
+                            cbStatus.addItem("Unpaid");
+                            cbStatus.setSelectedItem(status.equals("paid") ? "Paid" : "Unpaid");
+                        }
+                    }
+
+                    try (PreparedStatement psMeter = conn.prepareStatement(meterSql)) {
+                        psMeter.setString(1, userId);
+                        ResultSet rsMeter = psMeter.executeQuery();
+
+                        while (rsMeter.next()) {
+                            String meterType = rsMeter.getString("meter_type");
+                            double totalUsage = rsMeter.getDouble("meter_usage");
+                            if ("electric".equals(meterType)) {
+                                txtEusage.setText(totalUsage + " kwh");
+                            } else if ("water".equals(meterType)) {
+                                txtWusage.setText(totalUsage + " m³");
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            showErrorMessage("Database error: " + e.getMessage());
+        }
+    }
+    
+    private void deleteAccount(String userId) {
+        try (Connection conn = DBConnection.Connect()) {
+            String userSql = "DELETE FROM users WHERE user_id = ?";
+            String meterSql = "DELETE FROM meters WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+            String notifSql = "DELETE FROM notifications WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+            String paySql = "DELETE FROM payments WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+            String resSql = "DELETE FROM residents WHERE user_id = ?";
+            String profileSql = "DELETE FROM profiles WHERE user_id = ?";
+
+            try (PreparedStatement psUser = conn.prepareStatement(userSql); PreparedStatement psMeter = conn.prepareStatement(meterSql); PreparedStatement psNotif = conn.prepareStatement(notifSql); PreparedStatement psPay = conn.prepareStatement(paySql); PreparedStatement psRes = conn.prepareStatement(resSql); PreparedStatement psProfile = conn.prepareStatement(profileSql)) {
+
+                psMeter.setString(1, userId);
+                psMeter.executeUpdate();
+
+                psNotif.setString(1, userId);
+                psNotif.executeUpdate();
+
+                psPay.setString(1, userId);
+                psPay.executeUpdate();
+
+                psRes.setString(1, userId);
+                psRes.executeUpdate();
+
+                psProfile.setString(1, userId);
+                psProfile.executeUpdate();
+
+                psUser.setString(1, userId);
+                psUser.executeUpdate();
+
+                JOptionPane.showMessageDialog(this, "Account deleted successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (SQLException e) {
+            showErrorMessage("Database error: " + e.getMessage());
+        }
+    }
+    
+    private void loadDoors() {
+        try (Connection conn = DBConnection.Connect()) {
+            String doorSql = "SELECT * FROM doors";
+            try (PreparedStatement psDoor = conn.prepareStatement(doorSql); ResultSet rsDoor = psDoor.executeQuery()) {
+                cbDoor.removeAllItems();
+                while (rsDoor.next()) {
+                    String doorNumber = rsDoor.getString("door_number");
+                    cbDoor.addItem(doorNumber);
+                }
+            }
+        } catch (SQLException e) {
+            showErrorMessage("Database error: " + e.getMessage());
+        }
+    }
+    
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -34,7 +278,7 @@ public class Accounts extends javax.swing.JFrame {
         lblHome = new javax.swing.JLabel();
         lblLogout = new javax.swing.JLabel();
         lblHome1 = new javax.swing.JLabel();
-        lblHome2 = new javax.swing.JLabel();
+        lblDoors = new javax.swing.JLabel();
         lblHome3 = new javax.swing.JLabel();
         lblHome4 = new javax.swing.JLabel();
         contentPanel = new javax.swing.JPanel();
@@ -64,6 +308,7 @@ public class Accounts extends javax.swing.JFrame {
         txtRent = new javax.swing.JTextField();
         txtDueDate = new javax.swing.JTextField();
         txtTotal = new javax.swing.JTextField();
+        cbStatus = new javax.swing.JComboBox<>();
         lblContact = new javax.swing.JLabel();
         lblContact1 = new javax.swing.JLabel();
         txtSex = new javax.swing.JTextField();
@@ -73,7 +318,7 @@ public class Accounts extends javax.swing.JFrame {
         lblDoor1 = new javax.swing.JLabel();
         cbDoor = new javax.swing.JComboBox<>();
         btnAssign = new javax.swing.JButton();
-        btnDelete1 = new javax.swing.JButton();
+        btnMessage = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -108,10 +353,15 @@ public class Accounts extends javax.swing.JFrame {
         lblHome1.setText(" Accounts");
         lblHome1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        lblHome2.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblHome2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/door-open-solid-24.png"))); // NOI18N
-        lblHome2.setText(" Doors");
-        lblHome2.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblDoors.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
+        lblDoors.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/door-open-solid-24.png"))); // NOI18N
+        lblDoors.setText(" Doors");
+        lblDoors.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblDoors.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                lblDoorsMouseClicked(evt);
+            }
+        });
 
         lblHome3.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
         lblHome3.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/notepad-regular-24.png"))); // NOI18N
@@ -134,7 +384,7 @@ public class Accounts extends javax.swing.JFrame {
                     .addGroup(navPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                         .addComponent(lblHome1, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(lblHome, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(lblHome2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(lblDoors, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(lblHome3, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(lblHome4, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addGap(22, 22, 22))
@@ -147,7 +397,7 @@ public class Accounts extends javax.swing.JFrame {
                 .addGap(91, 91, 91)
                 .addComponent(lblHome1)
                 .addGap(18, 18, 18)
-                .addComponent(lblHome2)
+                .addComponent(lblDoors)
                 .addGap(18, 18, 18)
                 .addComponent(lblHome3)
                 .addGap(18, 18, 18)
@@ -189,7 +439,7 @@ public class Accounts extends javax.swing.JFrame {
 
         deetPanel.setBackground(new java.awt.Color(247, 247, 247));
 
-        tbAccounts.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        tbAccounts.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
         tbAccounts.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null, null},
@@ -201,6 +451,13 @@ public class Accounts extends javax.swing.JFrame {
                 "ID", "Name", "Contact", "Sex", "Door"
             }
         ));
+        tbAccounts.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        tbAccounts.setRowHeight(30);
+        tbAccounts.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                tbAccountsMouseClicked(evt);
+            }
+        });
         jScrollPane1.setViewportView(tbAccounts);
 
         btnDelete.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
@@ -218,8 +475,7 @@ public class Accounts extends javax.swing.JFrame {
 
         lblPfp.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/default-profile.png"))); // NOI18N
 
-        lblName.setFont(new java.awt.Font("Poppins", 1, 24)); // NOI18N
-        lblName.setText("Name Name Name");
+        lblName.setFont(new java.awt.Font("Poppins", 1, 36)); // NOI18N
 
         lblDoor.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
         lblDoor.setText("Door Number");
@@ -269,6 +525,8 @@ public class Accounts extends javax.swing.JFrame {
         txtTotal.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
         txtTotal.setFocusable(false);
 
+        cbStatus.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
@@ -286,8 +544,10 @@ public class Accounts extends javax.swing.JFrame {
                         .addComponent(txtEbill))
                     .addGroup(jPanel2Layout.createSequentialGroup()
                         .addComponent(lblElectricUsage6)
-                        .addGap(5, 5, 5)
-                        .addComponent(txtTotal))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(txtTotal, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(cbStatus, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addGroup(jPanel2Layout.createSequentialGroup()
                         .addComponent(lblElectricUsage2)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -336,7 +596,8 @@ public class Accounts extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(lblElectricUsage6)
-                    .addComponent(txtTotal, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(txtTotal, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(cbStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(12, 12, 12))
         );
 
@@ -358,7 +619,7 @@ public class Accounts extends javax.swing.JFrame {
         lblContact2.setText("Date Of Birth:");
         lblContact2.setToolTipText("Room Number");
 
-        lblAddress.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
+        lblAddress.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
         lblAddress.setText("Address");
         lblAddress.setToolTipText("Room Number");
 
@@ -409,7 +670,7 @@ public class Accounts extends javax.swing.JFrame {
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                             .addComponent(txtSex, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(txtDob, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))))
-                .addGap(18, 18, 18)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(lblName)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
             .addGroup(jPanel1Layout.createSequentialGroup()
@@ -434,10 +695,15 @@ public class Accounts extends javax.swing.JFrame {
             }
         });
 
-        btnDelete1.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
-        btnDelete1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/mail-send-regular-24.png"))); // NOI18N
-        btnDelete1.setText("Message");
-        btnDelete1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        btnMessage.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        btnMessage.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/mail-send-regular-24.png"))); // NOI18N
+        btnMessage.setText("Message");
+        btnMessage.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        btnMessage.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnMessageActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout deetPanelLayout = new javax.swing.GroupLayout(deetPanel);
         deetPanel.setLayout(deetPanelLayout);
@@ -451,7 +717,7 @@ public class Accounts extends javax.swing.JFrame {
                         .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 685, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(btnDelete1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(btnMessage, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(btnDelete, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(cbDoor, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addGroup(deetPanelLayout.createSequentialGroup()
@@ -472,7 +738,7 @@ public class Accounts extends javax.swing.JFrame {
                     .addGroup(deetPanelLayout.createSequentialGroup()
                         .addComponent(btnDelete, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(btnDelete1, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(btnMessage, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, deetPanelLayout.createSequentialGroup()
@@ -549,18 +815,141 @@ public class Accounts extends javax.swing.JFrame {
     }//GEN-LAST:event_lblHomeMouseClicked
 
     private void btnDeleteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDeleteActionPerformed
-        // TODO add your handling code here:
+        int selectedRow = tbAccounts.getSelectedRow();
+        if (selectedRow != -1) {
+            String userId = tbAccounts.getValueAt(selectedRow, 0).toString();
+
+            int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this account?", "Confirm Deletion", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (confirm == JOptionPane.YES_OPTION) {
+                deleteAccount(userId);
+                loadAccounts();
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Please select an account to delete.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+        }
     }//GEN-LAST:event_btnDeleteActionPerformed
 
     private void btnAssignActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAssignActionPerformed
-        // TODO add your handling code here:
+        int selectedRow = tbAccounts.getSelectedRow();
+        if (selectedRow != -1) {
+            String userId = tbAccounts.getValueAt(selectedRow, 0).toString();
+            String selectedDoor = (String) cbDoor.getSelectedItem();
+
+            try (Connection conn = DBConnection.Connect()) {
+                String countSql = "SELECT COUNT(*) AS resident_count FROM profiles WHERE door_id = (SELECT door_id FROM doors WHERE door_number = ?)";
+                try (PreparedStatement psCount = conn.prepareStatement(countSql)) {
+                    psCount.setString(1, selectedDoor);
+                    ResultSet rsCount = psCount.executeQuery();
+
+                    int currentCount = 0;
+                    if (rsCount.next()) {
+                        currentCount = rsCount.getInt("resident_count");
+                    }
+
+                    if (currentCount >= 4) {
+                        showErrorMessage("Cannot assign door. The door is already at full capacity (4 residents).");
+                        return;
+                    }
+
+                    String updateSql = "UPDATE profiles SET door_id = (SELECT door_id FROM doors WHERE door_number = ?) WHERE user_id = ?";
+                    try (PreparedStatement psUpdate = conn.prepareStatement(updateSql)) {
+                        psUpdate.setString(1, selectedDoor);
+                        psUpdate.setString(2, userId);
+                        int rowsAffected = psUpdate.executeUpdate();
+
+                        if (rowsAffected > 0) {
+                            JOptionPane.showMessageDialog(this, "Door assigned successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                            loadAccounts();
+                        } else {
+                            showErrorMessage("Failed to assign door. Please try again.");
+                        }
+                    }
+                }
+            } catch (SQLException e) {
+                showErrorMessage("Database error: " + e.getMessage());
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Please select an account to assign a door.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+        }
     }//GEN-LAST:event_btnAssignActionPerformed
+
+    private void tbAccountsMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tbAccountsMouseClicked
+        int selectedRow = tbAccounts.getSelectedRow();
+        if (selectedRow != -1) {
+            String userId = tbAccounts.getValueAt(selectedRow, 0).toString();
+            updateFields(userId);
+        }
+    }//GEN-LAST:event_tbAccountsMouseClicked
+
+    private void btnMessageActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnMessageActionPerformed
+        int selectedRow = tbAccounts.getSelectedRow();
+        if (selectedRow != -1) {
+            String userId = tbAccounts.getValueAt(selectedRow, 0).toString();
+
+            String billSql = "SELECT * FROM billings WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+            StringBuilder billingInfo = new StringBuilder();
+            boolean hasUnpaidBill = false;
+
+            try (Connection conn = DBConnection.Connect(); PreparedStatement psBill = conn.prepareStatement(billSql)) {
+                psBill.setString(1, userId);
+                ResultSet rsBill = psBill.executeQuery();
+
+                if (rsBill.next()) {
+                    String rent = rsBill.getString("rent");
+                    String waterUsage = rsBill.getString("water_usage");
+                    String electricUsage = rsBill.getString("electric_usage");
+                    String totalDue = rsBill.getString("total_due");
+                    String status = rsBill.getString("status");
+
+                    billingInfo.append("Rent: ").append(rent).append("\n")
+                            .append("Water Usage: ").append(waterUsage).append("\n")
+                            .append("Electric Usage: ").append(electricUsage).append("\n")
+                            .append("Total Due: ").append(totalDue).append("\n")
+                            .append("Status: ").append(status).append("\n");
+
+                    if (status.equals("unpaid")) {
+                        hasUnpaidBill = true;
+                    }
+                }
+            } catch (SQLException e) {
+                showErrorMessage("Database error: " + e.getMessage());
+                return;
+            }
+
+            String message = JOptionPane.showInputDialog(this,
+                    "Enter your message to the user:\n\n" + (hasUnpaidBill ? billingInfo.toString() : "No unpaid bills."),
+                    "Send Message", JOptionPane.PLAIN_MESSAGE);
+
+            if (message != null && !message.trim().isEmpty()) {
+                String insertSql = "INSERT INTO notifications (resident_id, message, status) VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), ?, 'unread')";
+                try (Connection conn = DBConnection.Connect(); PreparedStatement psInsert = conn.prepareStatement(insertSql)) {
+                    psInsert.setString(1, userId);
+                    psInsert.setString(2, message);
+                    psInsert.executeUpdate();
+                    JOptionPane.showMessageDialog(this, "Message sent successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                } catch (SQLException e) {
+                    showErrorMessage("Database error: " + e.getMessage());
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "Message cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Please select an account to send a message.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+        }
+    }//GEN-LAST:event_btnMessageActionPerformed
+
+    private void lblDoorsMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblDoorsMouseClicked
+        Doors doors = new Doors();
+        doors.setVisible(true);
+        this.dispose();
+    }//GEN-LAST:event_lblDoorsMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnAssign;
     private javax.swing.JButton btnDelete;
-    private javax.swing.JButton btnDelete1;
+    private javax.swing.JButton btnMessage;
     private javax.swing.JComboBox<String> cbDoor;
+    private javax.swing.JComboBox<String> cbStatus;
     private javax.swing.JPanel contentPanel;
     private javax.swing.JPanel deetPanel;
     private javax.swing.JPanel heroPanel;
@@ -574,6 +963,7 @@ public class Accounts extends javax.swing.JFrame {
     private javax.swing.JLabel lblContact2;
     private javax.swing.JLabel lblDoor;
     private javax.swing.JLabel lblDoor1;
+    private javax.swing.JLabel lblDoors;
     private javax.swing.JLabel lblElectricUsage;
     private javax.swing.JLabel lblElectricUsage1;
     private javax.swing.JLabel lblElectricUsage2;
@@ -583,7 +973,6 @@ public class Accounts extends javax.swing.JFrame {
     private javax.swing.JLabel lblElectricUsage6;
     private javax.swing.JLabel lblHome;
     private javax.swing.JLabel lblHome1;
-    private javax.swing.JLabel lblHome2;
     private javax.swing.JLabel lblHome3;
     private javax.swing.JLabel lblHome4;
     private javax.swing.JLabel lblLogout;

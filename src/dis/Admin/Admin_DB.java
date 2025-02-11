@@ -105,7 +105,7 @@ public class Admin_DB extends javax.swing.JFrame {
         lblHome = new javax.swing.JLabel();
         lblLogout = new javax.swing.JLabel();
         lblAccounts = new javax.swing.JLabel();
-        lblHome2 = new javax.swing.JLabel();
+        lblDoorPage = new javax.swing.JLabel();
         lblHome3 = new javax.swing.JLabel();
         lblHome4 = new javax.swing.JLabel();
         contentPanel = new javax.swing.JPanel();
@@ -164,10 +164,15 @@ public class Admin_DB extends javax.swing.JFrame {
             }
         });
 
-        lblHome2.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblHome2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/door-open-solid-24.png"))); // NOI18N
-        lblHome2.setText(" Doors");
-        lblHome2.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblDoorPage.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
+        lblDoorPage.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/door-open-solid-24.png"))); // NOI18N
+        lblDoorPage.setText(" Doors");
+        lblDoorPage.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblDoorPage.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                lblDoorPageMouseClicked(evt);
+            }
+        });
 
         lblHome3.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
         lblHome3.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/notepad-regular-24.png"))); // NOI18N
@@ -190,7 +195,7 @@ public class Admin_DB extends javax.swing.JFrame {
                     .addGroup(navPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                         .addComponent(lblAccounts, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(lblHome, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(lblHome2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(lblDoorPage, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(lblHome3, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(lblHome4, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addGap(22, 22, 22))
@@ -203,7 +208,7 @@ public class Admin_DB extends javax.swing.JFrame {
                 .addGap(91, 91, 91)
                 .addComponent(lblAccounts)
                 .addGap(18, 18, 18)
-                .addComponent(lblHome2)
+                .addComponent(lblDoorPage)
                 .addGap(18, 18, 18)
                 .addComponent(lblHome3)
                 .addGap(18, 18, 18)
@@ -504,6 +509,12 @@ public class Admin_DB extends javax.swing.JFrame {
         this.dispose();
     }//GEN-LAST:event_lblAccountsMouseClicked
 
+    private void lblDoorPageMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblDoorPageMouseClicked
+        Doors doors = new Doors();
+        doors.setVisible(true);
+        this.dispose();
+    }//GEN-LAST:event_lblDoorPageMouseClicked
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel cardPanel;
     private javax.swing.JPanel cardPanel1;
@@ -522,10 +533,10 @@ public class Admin_DB extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel9;
     private javax.swing.JLabel lblAccounts;
     private javax.swing.JLabel lblBG;
+    private javax.swing.JLabel lblDoorPage;
     private javax.swing.JLabel lblDoors;
     private javax.swing.JLabel lblElectricUsage;
     private javax.swing.JLabel lblHome;
-    private javax.swing.JLabel lblHome2;
     private javax.swing.JLabel lblHome3;
     private javax.swing.JLabel lblHome4;
     private javax.swing.JLabel lblLogout;

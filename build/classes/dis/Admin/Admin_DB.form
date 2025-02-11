@@ -75,7 +75,7 @@
                           <Group type="103" alignment="0" groupAlignment="1" max="-2" attributes="0">
                               <Component id="lblAccounts" alignment="0" max="32767" attributes="0"/>
                               <Component id="lblHome" alignment="0" max="32767" attributes="0"/>
-                              <Component id="lblHome2" alignment="0" max="32767" attributes="0"/>
+                              <Component id="lblDoorPage" alignment="0" max="32767" attributes="0"/>
                               <Component id="lblHome3" alignment="0" max="32767" attributes="0"/>
                               <Component id="lblHome4" alignment="0" max="32767" attributes="0"/>
                           </Group>
@@ -92,7 +92,7 @@
                       <EmptySpace min="-2" pref="91" max="-2" attributes="0"/>
                       <Component id="lblAccounts" min="-2" max="-2" attributes="0"/>
                       <EmptySpace type="separate" max="-2" attributes="0"/>
-                      <Component id="lblHome2" min="-2" max="-2" attributes="0"/>
+                      <Component id="lblDoorPage" min="-2" max="-2" attributes="0"/>
                       <EmptySpace type="separate" max="-2" attributes="0"/>
                       <Component id="lblHome3" min="-2" max="-2" attributes="0"/>
                       <EmptySpace type="separate" max="-2" attributes="0"/>
@@ -157,7 +157,7 @@
                 <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="lblAccountsMouseClicked"/>
               </Events>
             </Component>
-            <Component class="javax.swing.JLabel" name="lblHome2">
+            <Component class="javax.swing.JLabel" name="lblDoorPage">
               <Properties>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Poppins" size="18" style="0"/>
@@ -170,6 +170,9 @@
                   <Color id="Hand Cursor"/>
                 </Property>
               </Properties>
+              <Events>
+                <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="lblDoorPageMouseClicked"/>
+              </Events>
             </Component>
             <Component class="javax.swing.JLabel" name="lblHome3">
               <Properties>
