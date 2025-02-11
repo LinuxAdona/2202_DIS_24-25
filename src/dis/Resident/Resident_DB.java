@@ -31,6 +31,7 @@ public class Resident_DB extends javax.swing.JFrame {
         initComponents();
         welcomeMsg();
         displayPendingPaymentsAndDormitoryDetails();
+        loadCards();
     }
     
     private void showErrorMessage(String message) {
@@ -47,9 +48,8 @@ public class Resident_DB extends javax.swing.JFrame {
             showErrorMessage("User  ID is null. Please log in again.");
             return;
         }
-        System.out.println("User ID: " + userID);
         try (Connection conn = DBConnection.Connect()) {
-            String sql = "SELECT p.first_name, p.last_name, d.door_number, p.profile_picture "
+            String sql = "SELECT p.first_name, d.door_number, p.profile_picture "
                     + "FROM profiles p "
                     + "LEFT JOIN users u ON u.user_id = p.user_id "
                     + "LEFT JOIN doors d ON d.door_id = p.door_id "
@@ -59,14 +59,13 @@ public class Resident_DB extends javax.swing.JFrame {
                 ResultSet rs = ps.executeQuery();
                 if (rs.next()) {
                     String fName = rs.getString("first_name");
-                    String lName = rs.getString("last_name");
                     String doorNo = rs.getString("door_number");
                     
                     lblName.setText(fName + "!");
                     if (doorNo == null) {
-                        lblDoor.setText("Door #N/A");
+                        lblDoor.setText("Door N/A");
                     } else {
-                        lblDoor.setText("Door #" + doorNo);
+                        lblDoor.setText("Door " + doorNo);
                     }
                     byte[] imgBytes = rs.getBytes("profile_picture");
                     if (imgBytes != null) {
@@ -75,6 +74,25 @@ public class Resident_DB extends javax.swing.JFrame {
                     } else {
                         lblPfp.setIcon(new ImageIcon(getClass().getResource("/assets/default-profile.png")));
                     }
+                }
+            }
+        } catch (SQLException e) {
+            showErrorMessage("Database error: " + e.getMessage());
+        }
+    }
+    
+    private void loadCards() {
+        try (Connection conn = DBConnection.Connect()) {
+            String eSql = "SELECT IFNULL(SUM(meter_usage), 0) AS electric_usage FROM meters WHERE meter_type = 'electric'";
+            String wSql = "SELECT IFNULL(SUM(meter_usage), 0) AS water_usage FROM meters WHERE meter_type = 'water'";
+            try (PreparedStatement psE = conn.prepareStatement(eSql); PreparedStatement psW = conn.prepareStatement(wSql); ResultSet rsE = psE.executeQuery(); ResultSet rsW = psW.executeQuery()) {
+
+                if (rsE.next()) {
+                    lblEusage.setText(rsE.getString("electric_usage") + " kwh");
+                }
+
+                if (rsW.next()) {
+                    lblWusage.setText(rsW.getString("water_usage") + " m³");
                 }
             }
         } catch (SQLException e) {
@@ -136,10 +154,12 @@ public class Resident_DB extends javax.swing.JFrame {
                 }
 
                 if (!hasPendingPayments) {
+                    lblEusage.setText("N/A kwh");
+                    lblWusage.setText("N/A m³");
                     txtElectric.setText("N/A");
                     txtWater.setText("N/A");
                     txtRent.setText("N/A");
-                    txtTotal.setText("No Pending Payment.");
+                    txtTotal.setText("N/A");
                     txtDueDate.setText("N/A");
                 }
             }
@@ -163,14 +183,12 @@ public class Resident_DB extends javax.swing.JFrame {
         lblHistory = new javax.swing.JLabel();
         lblNotif = new javax.swing.JLabel();
         lblLogout = new javax.swing.JLabel();
-        lblSummary = new javax.swing.JLabel();
         lblProfile = new javax.swing.JLabel();
         contentPanel = new javax.swing.JPanel();
         lblWelcome = new javax.swing.JLabel();
         lblName = new javax.swing.JLabel();
         lblDoor = new javax.swing.JLabel();
         btmPanel = new javax.swing.JPanel();
-        jLabel1 = new javax.swing.JLabel();
         lblElectric = new javax.swing.JLabel();
         txtElectric = new javax.swing.JTextField();
         lblTotal1 = new javax.swing.JLabel();
@@ -182,7 +200,16 @@ public class Resident_DB extends javax.swing.JFrame {
         lblTotal = new javax.swing.JLabel();
         lblTotal4 = new javax.swing.JLabel();
         txtWater = new javax.swing.JTextField();
+        cardPanel1 = new javax.swing.JPanel();
+        jLabel3 = new javax.swing.JLabel();
+        lblEusage = new javax.swing.JLabel();
+        jLabel4 = new javax.swing.JLabel();
+        cardPanel3 = new javax.swing.JPanel();
+        jLabel7 = new javax.swing.JLabel();
+        lblWusage = new javax.swing.JLabel();
+        jLabel8 = new javax.swing.JLabel();
         lblPfp = new javax.swing.JLabel();
+        jLabel1 = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setBackground(new java.awt.Color(249, 249, 249));
@@ -199,7 +226,7 @@ public class Resident_DB extends javax.swing.JFrame {
         lblHome.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
         lblHistory.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblHistory.setText(" Payments");
+        lblHistory.setText(" History");
         lblHistory.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
         lblNotif.setFont(new java.awt.Font("Poppins", 0, 24)); // NOI18N
@@ -218,10 +245,6 @@ public class Resident_DB extends javax.swing.JFrame {
             }
         });
 
-        lblSummary.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblSummary.setText(" Summary");
-        lblSummary.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-
         lblProfile.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
         lblProfile.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/user-circle-solid-24.png"))); // NOI18N
         lblProfile.setText(" Profile");
@@ -236,9 +259,7 @@ public class Resident_DB extends javax.swing.JFrame {
                 .addComponent(lblHome)
                 .addGap(18, 18, 18)
                 .addComponent(lblHistory)
-                .addGap(18, 18, 18)
-                .addComponent(lblSummary)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 107, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(lblProfile)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(lblNotif)
@@ -255,7 +276,6 @@ public class Resident_DB extends javax.swing.JFrame {
                     .addComponent(lblLogout, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(lblProfile, javax.swing.GroupLayout.DEFAULT_SIZE, 37, Short.MAX_VALUE)
                     .addComponent(lblHome, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(lblSummary, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(lblHistory, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap(24, Short.MAX_VALUE))
         );
@@ -275,19 +295,16 @@ public class Resident_DB extends javax.swing.JFrame {
         btmPanel.setBackground(new java.awt.Color(247, 247, 247));
         btmPanel.setFont(new java.awt.Font("Poppins", 1, 24)); // NOI18N
 
-        jLabel1.setFont(new java.awt.Font("Poppins", 1, 24)); // NOI18N
-        jLabel1.setText("Pending Payments:");
-
         lblElectric.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
         lblElectric.setText("Electric Bill:");
 
-        txtElectric.setFont(new java.awt.Font("Poppins", 1, 14)); // NOI18N
+        txtElectric.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
         txtElectric.setFocusable(false);
 
-        lblTotal1.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
+        lblTotal1.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
         lblTotal1.setText("Due Date:");
 
-        txtDueDate.setFont(new java.awt.Font("Poppins", 1, 14)); // NOI18N
+        txtDueDate.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
         txtDueDate.setFocusable(false);
 
         btnPayment.setBackground(new java.awt.Color(154, 164, 255));
@@ -306,7 +323,7 @@ public class Resident_DB extends javax.swing.JFrame {
         txtTotal.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
         txtTotal.setFocusable(false);
 
-        lblTotal.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
+        lblTotal.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
         lblTotal.setText("Total Due:");
 
         lblTotal4.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
@@ -320,74 +337,161 @@ public class Resident_DB extends javax.swing.JFrame {
             }
         });
 
+        cardPanel1.setBackground(new java.awt.Color(255, 255, 255));
+        cardPanel1.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(204, 204, 204), 1, true));
+
+        jLabel3.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel3.setText("Electric Usage");
+
+        lblEusage.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
+        lblEusage.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        lblEusage.setText("0 kwh");
+
+        jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel4.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/bolt-solid-resident.png"))); // NOI18N
+
+        javax.swing.GroupLayout cardPanel1Layout = new javax.swing.GroupLayout(cardPanel1);
+        cardPanel1.setLayout(cardPanel1Layout);
+        cardPanel1Layout.setHorizontalGroup(
+            cardPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(cardPanel1Layout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(jLabel4, javax.swing.GroupLayout.PREFERRED_SIZE, 102, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(cardPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(lblEusage, javax.swing.GroupLayout.PREFERRED_SIZE, 125, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(12, 12, 12))
+        );
+        cardPanel1Layout.setVerticalGroup(
+            cardPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, cardPanel1Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(cardPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(jLabel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(cardPanel1Layout.createSequentialGroup()
+                        .addComponent(lblEusage, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jLabel3)))
+                .addContainerGap())
+        );
+
+        cardPanel3.setBackground(new java.awt.Color(255, 255, 255));
+        cardPanel3.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(204, 204, 204), 1, true));
+
+        jLabel7.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        jLabel7.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel7.setText("Water Usage");
+
+        lblWusage.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
+        lblWusage.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        lblWusage.setText("0 m³");
+
+        jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel8.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/water-droplet.png"))); // NOI18N
+
+        javax.swing.GroupLayout cardPanel3Layout = new javax.swing.GroupLayout(cardPanel3);
+        cardPanel3.setLayout(cardPanel3Layout);
+        cardPanel3Layout.setHorizontalGroup(
+            cardPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(cardPanel3Layout.createSequentialGroup()
+                .addGap(10, 10, 10)
+                .addComponent(jLabel8, javax.swing.GroupLayout.PREFERRED_SIZE, 102, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(cardPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(jLabel7, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(lblWusage, javax.swing.GroupLayout.PREFERRED_SIZE, 116, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(12, Short.MAX_VALUE))
+        );
+        cardPanel3Layout.setVerticalGroup(
+            cardPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, cardPanel3Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(cardPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(jLabel8, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(cardPanel3Layout.createSequentialGroup()
+                        .addComponent(lblWusage, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jLabel7)))
+                .addContainerGap())
+        );
+
         javax.swing.GroupLayout btmPanelLayout = new javax.swing.GroupLayout(btmPanel);
         btmPanel.setLayout(btmPanelLayout);
         btmPanelLayout.setHorizontalGroup(
             btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(btmPanelLayout.createSequentialGroup()
-                .addGap(22, 22, 22)
                 .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jLabel1)
-                    .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                        .addComponent(btnPayment, javax.swing.GroupLayout.PREFERRED_SIZE, 576, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGroup(btmPanelLayout.createSequentialGroup()
-                            .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                .addComponent(txtDueDate)
-                                .addGroup(btmPanelLayout.createSequentialGroup()
-                                    .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                        .addComponent(lblElectric)
-                                        .addComponent(lblTotal1))
-                                    .addGap(0, 0, Short.MAX_VALUE))
-                                .addComponent(txtElectric))
-                            .addGap(18, 18, 18)
-                            .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                .addComponent(lblTotal)
-                                .addGroup(btmPanelLayout.createSequentialGroup()
-                                    .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                                        .addComponent(txtTotal, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 180, Short.MAX_VALUE)
-                                        .addComponent(lblTotal4, javax.swing.GroupLayout.Alignment.LEADING)
-                                        .addComponent(txtWater, javax.swing.GroupLayout.Alignment.LEADING))
-                                    .addGap(18, 18, 18)
-                                    .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                        .addComponent(lblTotal2)
-                                        .addComponent(txtRent, javax.swing.GroupLayout.PREFERRED_SIZE, 180, javax.swing.GroupLayout.PREFERRED_SIZE)))))))
+                    .addGroup(btmPanelLayout.createSequentialGroup()
+                        .addGap(44, 44, 44)
+                        .addComponent(cardPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)
+                        .addComponent(cardPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(btmPanelLayout.createSequentialGroup()
+                        .addGap(22, 22, 22)
+                        .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addGroup(btmPanelLayout.createSequentialGroup()
+                                .addComponent(lblElectric)
+                                .addGap(0, 84, Short.MAX_VALUE))
+                            .addComponent(txtElectric))
+                        .addGap(18, 18, 18)
+                        .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(lblTotal4)
+                            .addComponent(txtWater, javax.swing.GroupLayout.PREFERRED_SIZE, 180, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(18, 18, 18)
+                        .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(lblTotal2)
+                            .addComponent(txtRent, javax.swing.GroupLayout.PREFERRED_SIZE, 180, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                .addGap(37, 37, 37)
+                .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(lblTotal1)
+                    .addComponent(lblTotal)
+                    .addComponent(txtDueDate)
+                    .addComponent(txtTotal)
+                    .addComponent(btnPayment, javax.swing.GroupLayout.DEFAULT_SIZE, 200, Short.MAX_VALUE))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         btmPanelLayout.setVerticalGroup(
             btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, btmPanelLayout.createSequentialGroup()
+            .addGroup(btmPanelLayout.createSequentialGroup()
                 .addGap(25, 25, 25)
-                .addComponent(jLabel1)
-                .addGap(18, 18, 18)
-                .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(btmPanelLayout.createSequentialGroup()
-                        .addComponent(lblElectric)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(txtElectric, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(cardPanel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(cardPanel3, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addGap(18, 18, 18)
-                        .addComponent(lblTotal1)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(txtDueDate, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, btmPanelLayout.createSequentialGroup()
                         .addGroup(btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                             .addGroup(btmPanelLayout.createSequentialGroup()
-                                .addComponent(lblTotal4)
+                                .addComponent(lblElectric)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(txtWater, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(btmPanelLayout.createSequentialGroup()
-                                .addComponent(lblTotal2)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(txtRent, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(txtElectric, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(82, 82, 82))
+                            .addGroup(javax.swing.GroupLayout.Alignment.LEADING, btmPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                                .addGroup(btmPanelLayout.createSequentialGroup()
+                                    .addComponent(lblTotal4)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                    .addComponent(txtWater, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGroup(btmPanelLayout.createSequentialGroup()
+                                    .addComponent(lblTotal2)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                    .addComponent(txtRent, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addComponent(btnPayment, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                    .addGroup(btmPanelLayout.createSequentialGroup()
+                        .addComponent(lblTotal1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(txtDueDate, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(lblTotal)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(txtTotal, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addGap(18, 18, 18)
-                .addComponent(btnPayment, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(16, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         lblPfp.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/default-profile.png"))); // NOI18N
+
+        jLabel1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/background-resident.png"))); // NOI18N
 
         javax.swing.GroupLayout contentPanelLayout = new javax.swing.GroupLayout(contentPanel);
         contentPanel.setLayout(contentPanelLayout);
@@ -399,29 +503,31 @@ public class Resident_DB extends javax.swing.JFrame {
                 .addComponent(lblPfp, javax.swing.GroupLayout.PREFERRED_SIZE, 170, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(28, 28, 28)
                 .addGroup(contentPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(contentPanelLayout.createSequentialGroup()
-                        .addGroup(contentPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(lblName)
-                            .addComponent(lblWelcome))
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addGroup(contentPanelLayout.createSequentialGroup()
-                        .addComponent(lblDoor)
-                        .addGap(16, 278, Short.MAX_VALUE))))
+                    .addComponent(lblName)
+                    .addComponent(lblWelcome)
+                    .addComponent(lblDoor))
+                .addGap(18, 18, 18)
+                .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         contentPanelLayout.setVerticalGroup(
             contentPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(contentPanelLayout.createSequentialGroup()
-                .addGap(20, 20, 20)
-                .addGroup(contentPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                .addGroup(contentPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(contentPanelLayout.createSequentialGroup()
-                        .addComponent(lblWelcome)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(lblName)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(lblDoor, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(lblPfp, javax.swing.GroupLayout.PREFERRED_SIZE, 170, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 31, Short.MAX_VALUE)
-                .addComponent(btmPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(20, 20, 20)
+                        .addGroup(contentPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addGroup(contentPanelLayout.createSequentialGroup()
+                                .addComponent(lblWelcome)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(lblName)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(lblDoor, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(lblPfp, javax.swing.GroupLayout.PREFERRED_SIZE, 170, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(contentPanelLayout.createSequentialGroup()
+                        .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
+                .addComponent(btmPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 245, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
 
         javax.swing.GroupLayout mainPanelLayout = new javax.swing.GroupLayout(mainPanel);
@@ -471,10 +577,17 @@ public class Resident_DB extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel btmPanel;
     private javax.swing.JButton btnPayment;
+    private javax.swing.JPanel cardPanel1;
+    private javax.swing.JPanel cardPanel3;
     private javax.swing.JPanel contentPanel;
     private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel3;
+    private javax.swing.JLabel jLabel4;
+    private javax.swing.JLabel jLabel7;
+    private javax.swing.JLabel jLabel8;
     private javax.swing.JLabel lblDoor;
     private javax.swing.JLabel lblElectric;
+    private javax.swing.JLabel lblEusage;
     private javax.swing.JLabel lblHistory;
     private javax.swing.JLabel lblHome;
     private javax.swing.JLabel lblLogout;
@@ -482,12 +595,12 @@ public class Resident_DB extends javax.swing.JFrame {
     private javax.swing.JLabel lblNotif;
     private javax.swing.JLabel lblPfp;
     private javax.swing.JLabel lblProfile;
-    private javax.swing.JLabel lblSummary;
     private javax.swing.JLabel lblTotal;
     private javax.swing.JLabel lblTotal1;
     private javax.swing.JLabel lblTotal2;
     private javax.swing.JLabel lblTotal4;
     private javax.swing.JLabel lblWelcome;
+    private javax.swing.JLabel lblWusage;
     private javax.swing.JPanel mainPanel;
     private javax.swing.JPanel navPanel;
     private javax.swing.JTextField txtDueDate;

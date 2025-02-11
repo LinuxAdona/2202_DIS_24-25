@@ -3,7 +3,7 @@ package strt;
 import Database.DBConnection;
 import obj.User;
 import obj.UserSession;
-import dis.Admin_DB;
+import dis.Admin.Admin_DB;
 import dis.Resident.Resident_DB;
 import java.awt.event.KeyEvent;
 import java.sql.Connection;
@@ -202,18 +202,27 @@ public class Login extends javax.swing.JFrame {
                                 JOptionPane.showMessageDialog(this, "Welcome, " + fullName + "!", "Login Successful",
                                         JOptionPane.INFORMATION_MESSAGE);
                             } else {
-                                sql = "SELECT * FROM residents WHERE user_id = ?";
+                                sql = "SELECT d.door_number "
+                                    + "FROM profiles p "
+                                    + "LEFT JOIN users u ON u.user_id = p.user_id "
+                                    + "LEFT JOIN doors d ON d.door_id = p.door_id "
+                                    + "WHERE p.user_id = ?";
                                 try (PreparedStatement residentStmt = conn.prepareStatement(sql)) {
                                     residentStmt.setString(1, userId);
                                     ResultSet residentRs = residentStmt.executeQuery();
 
                                     if (residentRs.next()) {
-                                        Resident_DB residentDB = new Resident_DB();
-                                        residentDB.setVisible(true);
-                                        resetFields();
-                                        this.dispose();
-                                        JOptionPane.showMessageDialog(this, "Welcome, " + fullName + "!",
-                                                "Login Successful", JOptionPane.INFORMATION_MESSAGE);
+                                        String doorNo = residentRs.getString("door_number");
+                                        if (doorNo == null) {
+                                            JOptionPane.showMessageDialog(null, "This user does not have a door assigned yet.", "Error", JOptionPane.ERROR_MESSAGE);
+                                        } else {
+                                            Resident_DB residentDB = new Resident_DB();
+                                            residentDB.setVisible(true);
+                                            resetFields();
+                                            this.dispose();
+                                            JOptionPane.showMessageDialog(this, "Welcome, " + fullName + "!",
+                                                    "Login Successful", JOptionPane.INFORMATION_MESSAGE);
+                                        }
                                     } else {
                                         showErrorMessage("User not recognized.");
                                     }
