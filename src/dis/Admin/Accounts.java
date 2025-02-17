@@ -36,6 +36,10 @@ public class Accounts extends javax.swing.JFrame {
         JOptionPane.showMessageDialog(this, message, "Login Error", JOptionPane.ERROR_MESSAGE);
     }
 
+    private String getLoggedInUserID() {
+        return Login.loggedInUserID;
+    }
+
     private void loadAccounts() {
         DefaultTableModel model = (DefaultTableModel) tbAccounts.getModel();
         model.setRowCount(0);
@@ -50,18 +54,25 @@ public class Accounts extends javax.swing.JFrame {
         try (Connection conn = DBConnection.Connect()) {
             String userSql = "SELECT u.user_id "
                            + "FROM users u "
-                           + "LEFT JOIN admins a ON u.user_id = a.user_id "
-                           + "WHERE a.user_id IS NULL "
-                           + "ORDER BY u.user_id ASC";
-            String profilesSql = "SELECT * FROM profiles";
+                           + "INNER JOIN profiles p ON u.user_id = p.user_id "
+                           + "INNER JOIN doors d ON p.door_id = d.door_id "
+                           + "INNER JOIN branches b ON d.branch_id = b.branch_id "
+                           + "WHERE u.role = 'residents' AND d.branch_id = (SELECT d.branch_id FROM users u "
+                           + "INNER JOIN profiles p ON u.user_id = p.user_id "
+                           + "INNER JOIN doors d ON p.door_id = d.door_id "
+                           + "WHERE u.user_id = ?) "
+                           + "ORDER BY u.user_id ASC ";
+            String profileSql = "SELECT * FROM profiles WHERE user_id = ?";
             String doorSql = "SELECT * FROM doors";
+            String userID = getLoggedInUserID();
 
-            try (PreparedStatement psUser = conn.prepareStatement(userSql); ResultSet rsUser = psUser.executeQuery()) {
-
+            try (PreparedStatement psUser = conn.prepareStatement(userSql)) {
+                psUser.setString(1, userID);
+                ResultSet rsUser = psUser.executeQuery();
+                
                 while (rsUser.next()) {
                     String userId = rsUser.getString("user_id");
 
-                    String profileSql = profilesSql + " WHERE user_id = ?";
                     try (PreparedStatement psProfile = conn.prepareStatement(profileSql)) {
                         psProfile.setString(1, userId);
                         ResultSet rsProfile = psProfile.executeQuery();
@@ -110,12 +121,22 @@ public class Accounts extends javax.swing.JFrame {
     }
     
     private void updateFields(String userId) {
+        DefaultTableModel model = (DefaultTableModel) tbPayments.getModel();
+        model.setRowCount(0);
+
+        tbPayments.getTableHeader().setReorderingAllowed(false);
+
+        for (int i = 0; i < tbPayments.getColumnModel().getColumnCount(); i++) {
+            tbPayments.getColumnModel().getColumn(i).setResizable(false);
+        }
+        
         try (Connection conn = DBConnection.Connect()) {
+            SimpleDateFormat dateFormat = new SimpleDateFormat("MMMM dd, yyyy");
+            
             String profilesSql = "SELECT * FROM profiles WHERE user_id = ?";
             String doorSql = "SELECT * FROM doors WHERE door_id = (SELECT door_id FROM profiles WHERE user_id = ?)";
             String addressSql = "SELECT * FROM address WHERE address_id = (SELECT address_id FROM profiles WHERE user_id = ?)";
-            String billSql = "SELECT * FROM billings WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
-            String meterSql = "SELECT * FROM meters WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+            String paymentSql = "SELECT * FROM payments WHERE user_id = ?   ";
 
             try (PreparedStatement psProfile = conn.prepareStatement(profilesSql)) {
                 psProfile.setString(1, userId);
@@ -125,9 +146,9 @@ public class Accounts extends javax.swing.JFrame {
                     String name = rsProfile.getString("first_name") + " " + rsProfile.getString("last_name");
                     String contact = rsProfile.getString("contact_number");
                     String sex = rsProfile.getString("sex");
-                    Date dobDate = rsProfile.getDate("date_of_birth");
-                    SimpleDateFormat newFormat = new SimpleDateFormat("MM/dd/yyyy");
-                    String dob = newFormat.format(dobDate);
+                    java.sql.Date dueDateSql = rsProfile.getDate("date_of_birth");
+                    String formattedDueDate = dateFormat.format(dueDateSql);
+
 
                     byte[] imgBytes = rsProfile.getBytes("profile_picture");
                     if (imgBytes != null) {
@@ -138,8 +159,13 @@ public class Accounts extends javax.swing.JFrame {
                     }
                     lblName.setText(name);
                     lblContact.setText(contact);
-                    txtSex.setText(sex);
-                    txtDob.setText(dob);
+                    if ("Male".equals(sex)) {
+                        lblSex.setIcon(new ImageIcon(getClass().getResource("/assets/male-regular-24.png")));   
+                    } else {
+                        lblSex.setIcon(new ImageIcon(getClass().getResource("/assets/female-regular-24.png")));
+                    }
+                    lblSex.setText(" " + sex);
+                    lblDob.setText(formattedDueDate);
 
                     String doorNumber = "N/A";
                     try (PreparedStatement psDoor = conn.prepareStatement(doorSql)) {
@@ -165,47 +191,20 @@ public class Accounts extends javax.swing.JFrame {
                             lblAddress.setText(fullAddress);
                         }
                     }
-
-                    try (PreparedStatement psBill = conn.prepareStatement(billSql)) {
-                        psBill.setString(1, userId);
-                        ResultSet rsBill = psBill.executeQuery();
-
-                        if (rsBill.next()) {
-                            String rent = rsBill.getString("rent");
-                            String waterUsage = rsBill.getString("water_usage");
-                            String electricUsage = rsBill.getString("electric_usage");
-                            String totalDue = rsBill.getString("total_due");
-                            java.sql.Date dueDateSql = rsBill.getDate("due_date"); // Retrieve as java.sql.Date
-                            String formattedDueDate = (dueDateSql != null) ? newFormat.format(dueDateSql) : "N/A"; // Format only if not null
-                            String status = rsBill.getString("status");
-
-                            txtRent.setText(rent);
-                            txtWbill.setText("PHP " + waterUsage);
-                            txtEbill.setText("PHP " + electricUsage);
-                            txtTotal.setText("PHP " + totalDue);
-                            txtDueDate.setText(formattedDueDate);
-
-                            cbStatus.removeAllItems();
-                            cbStatus.addItem("Paid");
-                            cbStatus.addItem("Unpaid");
-                            cbStatus.setSelectedItem(status.equals("paid") ? "Paid" : "Unpaid");
-                        }
-                    }
-
-                    try (PreparedStatement psMeter = conn.prepareStatement(meterSql)) {
-                        psMeter.setString(1, userId);
-                        ResultSet rsMeter = psMeter.executeQuery();
-
-                        while (rsMeter.next()) {
-                            String meterType = rsMeter.getString("meter_type");
-                            double totalUsage = rsMeter.getDouble("meter_usage");
-                            if ("electric".equals(meterType)) {
-                                txtEusage.setText(totalUsage + " kwh");
-                            } else if ("water".equals(meterType)) {
-                                txtWusage.setText(totalUsage + " m³");
-                            }
-                        }
-                    }
+                }
+            }
+            
+            try (PreparedStatement psP = conn.prepareStatement(paymentSql)) {
+                psP.setString(1, userId);
+                ResultSet rsP = psP.executeQuery();
+                
+                while (rsP.next()) {
+                    String amount = "PHP " + rsP.getString("amount_paid");
+                    Date dobDate = rsP.getDate("date_paid");
+                    SimpleDateFormat newFormat = new SimpleDateFormat("MM/dd/yyyy");
+                    String dob = newFormat.format(dobDate);
+                    
+                    model.addRow(new Object[]{amount, dob});
                 }
             }
         } catch (SQLException e) {
@@ -216,13 +215,16 @@ public class Accounts extends javax.swing.JFrame {
     private void deleteAccount(String userId) {
         try (Connection conn = DBConnection.Connect()) {
             String userSql = "DELETE FROM users WHERE user_id = ?";
-            String meterSql = "DELETE FROM meters WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
-            String notifSql = "DELETE FROM notifications WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
-            String paySql = "DELETE FROM payments WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
-            String resSql = "DELETE FROM residents WHERE user_id = ?";
+            String meterSql = "DELETE FROM meters WHERE user_id = ?";
+            String notifSql = "DELETE FROM notifications WHERE user_id = ?";
+            String paySql = "DELETE FROM payments WHERE user_id = ?";
             String profileSql = "DELETE FROM profiles WHERE user_id = ?";
 
-            try (PreparedStatement psUser = conn.prepareStatement(userSql); PreparedStatement psMeter = conn.prepareStatement(meterSql); PreparedStatement psNotif = conn.prepareStatement(notifSql); PreparedStatement psPay = conn.prepareStatement(paySql); PreparedStatement psRes = conn.prepareStatement(resSql); PreparedStatement psProfile = conn.prepareStatement(profileSql)) {
+            try (PreparedStatement psUser = conn.prepareStatement(userSql); 
+                    PreparedStatement psMeter = conn.prepareStatement(meterSql); 
+                    PreparedStatement psNotif = conn.prepareStatement(notifSql); 
+                    PreparedStatement psPay = conn.prepareStatement(paySql); 
+                    PreparedStatement psProfile = conn.prepareStatement(profileSql)) {
 
                 psMeter.setString(1, userId);
                 psMeter.executeUpdate();
@@ -232,9 +234,6 @@ public class Accounts extends javax.swing.JFrame {
 
                 psPay.setString(1, userId);
                 psPay.executeUpdate();
-
-                psRes.setString(1, userId);
-                psRes.executeUpdate();
 
                 psProfile.setString(1, userId);
                 psProfile.executeUpdate();
@@ -293,31 +292,20 @@ public class Accounts extends javax.swing.JFrame {
         lblName = new javax.swing.JLabel();
         lblDoor = new javax.swing.JLabel();
         jPanel2 = new javax.swing.JPanel();
-        lblElectricUsage = new javax.swing.JLabel();
-        lblElectricUsage1 = new javax.swing.JLabel();
-        lblElectricUsage2 = new javax.swing.JLabel();
-        lblElectricUsage3 = new javax.swing.JLabel();
-        lblElectricUsage4 = new javax.swing.JLabel();
-        lblElectricUsage5 = new javax.swing.JLabel();
-        lblElectricUsage6 = new javax.swing.JLabel();
-        txtEusage = new javax.swing.JTextField();
-        txtEbill = new javax.swing.JTextField();
-        txtWusage = new javax.swing.JTextField();
-        txtWbill = new javax.swing.JTextField();
-        txtRent = new javax.swing.JTextField();
-        txtDueDate = new javax.swing.JTextField();
-        txtTotal = new javax.swing.JTextField();
-        cbStatus = new javax.swing.JComboBox<>();
+        jScrollPane2 = new javax.swing.JScrollPane();
+        tbPayments = new javax.swing.JTable();
+        lblDoor2 = new javax.swing.JLabel();
         lblContact = new javax.swing.JLabel();
-        lblContact1 = new javax.swing.JLabel();
-        txtSex = new javax.swing.JTextField();
-        txtDob = new javax.swing.JTextField();
-        lblContact2 = new javax.swing.JLabel();
+        lblSex = new javax.swing.JLabel();
+        lblDob = new javax.swing.JLabel();
         lblAddress = new javax.swing.JLabel();
         lblDoor1 = new javax.swing.JLabel();
         cbDoor = new javax.swing.JComboBox<>();
         btnAssign = new javax.swing.JButton();
         btnMessage = new javax.swing.JButton();
+        txtSearch = new javax.swing.JTextField();
+        btnSearch = new javax.swing.JButton();
+        btnSearch1 = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -455,6 +443,11 @@ public class Accounts extends javax.swing.JFrame {
             }
         });
         jScrollPane1.setViewportView(tbAccounts);
+        if (tbAccounts.getColumnModel().getColumnCount() > 0) {
+            tbAccounts.getColumnModel().getColumn(1).setHeaderValue("Name");
+            tbAccounts.getColumnModel().getColumn(2).setHeaderValue("Contact");
+            tbAccounts.getColumnModel().getColumn(3).setHeaderValue("Sex");
+        }
 
         btnDelete.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
         btnDelete.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/trash-regular-24.png"))); // NOI18N
@@ -473,147 +466,70 @@ public class Accounts extends javax.swing.JFrame {
 
         lblName.setFont(new java.awt.Font("Poppins", 1, 36)); // NOI18N
 
-        lblDoor.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
+        lblDoor.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
         lblDoor.setText("Door Number");
         lblDoor.setToolTipText("Room Number");
 
         jPanel2.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(204, 204, 204), 1, true));
 
-        lblElectricUsage.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        lblElectricUsage.setText("Electric Usage:");
+        tbPayments.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        tbPayments.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null},
+                {null, null},
+                {null, null},
+                {null, null}
+            },
+            new String [] {
+                "Amount", "Date"
+            }
+        ));
+        tbPayments.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        tbPayments.setRowHeight(30);
+        tbPayments.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                tbPaymentsMouseClicked(evt);
+            }
+        });
+        jScrollPane2.setViewportView(tbPayments);
 
-        lblElectricUsage1.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        lblElectricUsage1.setText("Electric Bill:");
-
-        lblElectricUsage2.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        lblElectricUsage2.setText("Water Usage:");
-
-        lblElectricUsage3.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        lblElectricUsage3.setText("Water Bill:");
-
-        lblElectricUsage4.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        lblElectricUsage4.setText("Rent:");
-
-        lblElectricUsage5.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        lblElectricUsage5.setText("Due Date:");
-
-        lblElectricUsage6.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        lblElectricUsage6.setText("Total Due:");
-
-        txtEusage.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        txtEusage.setFocusable(false);
-
-        txtEbill.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        txtEbill.setFocusable(false);
-
-        txtWusage.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        txtWusage.setFocusable(false);
-
-        txtWbill.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        txtWbill.setFocusable(false);
-
-        txtRent.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        txtRent.setFocusable(false);
-
-        txtDueDate.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        txtDueDate.setFocusable(false);
-
-        txtTotal.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        txtTotal.setFocusable(false);
-
-        cbStatus.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        lblDoor2.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
+        lblDoor2.setText("Payments");
+        lblDoor2.setToolTipText("Room Number");
 
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addComponent(lblElectricUsage)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(txtEusage))
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addComponent(lblElectricUsage1)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(txtEbill))
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addComponent(lblElectricUsage6)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(txtTotal, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(cbStatus, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addComponent(lblElectricUsage2)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(txtWusage))
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addComponent(lblElectricUsage3)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(txtWbill))
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addComponent(lblElectricUsage4)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(txtRent))
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addComponent(lblElectricUsage5)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(txtDueDate)))
-                .addContainerGap())
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
+                .addContainerGap(106, Short.MAX_VALUE)
+                .addComponent(lblDoor2)
+                .addGap(99, 99, 99))
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
-                .addContainerGap(7, Short.MAX_VALUE)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(lblElectricUsage)
-                    .addComponent(txtEusage, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap()
+                .addComponent(lblDoor2, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(lblElectricUsage1)
-                    .addComponent(txtEbill, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(lblElectricUsage2)
-                    .addComponent(txtWusage, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(lblElectricUsage3)
-                    .addComponent(txtWbill, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(lblElectricUsage4)
-                    .addComponent(txtRent, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(lblElectricUsage5)
-                    .addComponent(txtDueDate, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(lblElectricUsage6)
-                    .addComponent(txtTotal, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(cbStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(12, 12, 12))
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                .addContainerGap())
         );
 
-        lblContact.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
+        lblContact.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
         lblContact.setText("Contact No.");
         lblContact.setToolTipText("Room Number");
 
-        lblContact1.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblContact1.setText("Sex:");
-        lblContact1.setToolTipText("Room Number");
+        lblSex.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        lblSex.setText("Sex");
+        lblSex.setToolTipText("Room Number");
 
-        txtSex.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        txtSex.setFocusable(false);
-
-        txtDob.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        txtDob.setFocusable(false);
-
-        lblContact2.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblContact2.setText("Date Of Birth:");
-        lblContact2.setToolTipText("Room Number");
+        lblDob.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        lblDob.setText("Date Of Birth");
+        lblDob.setToolTipText("Room Number");
 
         lblAddress.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
         lblAddress.setText("Address");
@@ -632,18 +548,12 @@ public class Accounts extends javax.swing.JFrame {
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(lblDoor)
                             .addComponent(lblContact)
-                            .addGroup(jPanel1Layout.createSequentialGroup()
-                                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(lblContact1)
-                                    .addComponent(txtSex, javax.swing.GroupLayout.PREFERRED_SIZE, 64, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                .addGap(18, 18, 18)
-                                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(lblContact2)
-                                    .addComponent(txtDob, javax.swing.GroupLayout.PREFERRED_SIZE, 150, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                            .addComponent(lblAddress)))
+                            .addComponent(lblDob)
+                            .addComponent(lblAddress)
+                            .addComponent(lblSex)))
                     .addComponent(lblName))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
         jPanel1Layout.setVerticalGroup(
@@ -651,7 +561,11 @@ public class Accounts extends javax.swing.JFrame {
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addGap(27, 27, 27)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(lblPfp)
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addGap(8, 8, 8)
+                        .addComponent(lblPfp)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(lblName))
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addComponent(lblDoor, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -659,16 +573,10 @@ public class Accounts extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(lblAddress, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(lblContact1, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(lblContact2, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addComponent(lblDob, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(txtSex, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(txtDob, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(lblName)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addComponent(lblSex, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(74, Short.MAX_VALUE))
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -701,52 +609,78 @@ public class Accounts extends javax.swing.JFrame {
             }
         });
 
+        txtSearch.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+
+        btnSearch.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        btnSearch.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/search-regular-24.png"))); // NOI18N
+        btnSearch.setText("Search");
+        btnSearch.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        btnSearch.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnSearchActionPerformed(evt);
+            }
+        });
+
+        btnSearch1.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        btnSearch1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/refresh-regular-24.png"))); // NOI18N
+        btnSearch1.setText("Refresh");
+        btnSearch1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        btnSearch1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnSearch1ActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout deetPanelLayout = new javax.swing.GroupLayout(deetPanel);
         deetPanel.setLayout(deetPanelLayout);
         deetPanelLayout.setHorizontalGroup(
             deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(deetPanelLayout.createSequentialGroup()
-                .addContainerGap()
+                .addGap(6, 6, 6)
                 .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(deetPanelLayout.createSequentialGroup()
-                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 685, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(btnMessage, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(btnDelete, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(cbDoor, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addGroup(deetPanelLayout.createSequentialGroup()
-                                .addComponent(lblDoor1)
-                                .addGap(0, 0, Short.MAX_VALUE))
-                            .addComponent(btnAssign, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                        .addGap(2, 2, 2)))
-                .addContainerGap())
+                                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 685, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(6, 6, 6))
+                            .addGroup(deetPanelLayout.createSequentialGroup()
+                                .addComponent(txtSearch, javax.swing.GroupLayout.PREFERRED_SIZE, 470, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(btnSearch, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(btnSearch1)
+                                .addGap(4, 4, 4)))
+                        .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(btnDelete, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(btnMessage)
+                            .addComponent(lblDoor1)
+                            .addComponent(cbDoor, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(btnAssign, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(8, 8, 8))))
         );
         deetPanelLayout.setVerticalGroup(
             deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(deetPanelLayout.createSequentialGroup()
-                .addContainerGap()
+                .addGap(6, 6, 6)
+                .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnDelete, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(txtSearch, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnSearch1, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnSearch, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(6, 6, 6)
                 .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 154, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(deetPanelLayout.createSequentialGroup()
-                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 200, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 7, Short.MAX_VALUE))
-                    .addGroup(deetPanelLayout.createSequentialGroup()
-                        .addComponent(btnDelete, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(btnMessage, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, deetPanelLayout.createSequentialGroup()
-                                .addComponent(lblDoor1)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(cbDoor, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(54, 54, 54))
-                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, deetPanelLayout.createSequentialGroup()
-                                .addComponent(btnAssign, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))))
-                .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addContainerGap())
+                        .addGap(9, 9, 9)
+                        .addComponent(lblDoor1)
+                        .addGap(6, 6, 6)
+                        .addComponent(cbDoor, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(8, 8, 8)
+                        .addComponent(btnAssign, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addGap(6, 6, 6)
+                .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout contentPanelLayout = new javax.swing.GroupLayout(contentPanel);
@@ -827,30 +761,40 @@ public class Accounts extends javax.swing.JFrame {
 
     private void btnAssignActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAssignActionPerformed
         int selectedRow = tbAccounts.getSelectedRow();
+        String userID = getLoggedInUserID();
         if (selectedRow != -1) {
             String userId = tbAccounts.getValueAt(selectedRow, 0).toString();
             String selectedDoor = (String) cbDoor.getSelectedItem();
 
             try (Connection conn = DBConnection.Connect()) {
-                String countSql = "SELECT COUNT(*) AS resident_count FROM profiles WHERE door_id = (SELECT door_id FROM doors WHERE door_number = ?)";
+                String countSql = "SELECT d.available FROM doors d "
+                        + "INNER JOIN branches b ON d.branch_id = d.branch_id "
+                        + "WHERE d.branch_id = (SELECT branch_id FROM branches WHERE user_id = ?) AND d.door_id IN (SELECT door_id FROM doors WHERE door_number = ?)";
                 try (PreparedStatement psCount = conn.prepareStatement(countSql)) {
-                    psCount.setString(1, selectedDoor);
+                    psCount.setString(1, userID);
+                    psCount.setString(2, selectedDoor);
                     ResultSet rsCount = psCount.executeQuery();
 
                     int currentCount = 0;
                     if (rsCount.next()) {
-                        currentCount = rsCount.getInt("resident_count");
+                        currentCount = rsCount.getInt("available");
                     }
 
-                    if (currentCount >= 4) {
+                    if (currentCount == 0) {
                         showErrorMessage("Cannot assign door. The door is already at full capacity (4 residents).");
                         return;
                     }
 
-                    String updateSql = "UPDATE profiles SET door_id = (SELECT door_id FROM doors WHERE door_number = ?) WHERE user_id = ?";
+                    String updateSql = "UPDATE profiles SET door_id = ("
+                            + "SELECT d.door_id FROM doors d "
+                            + "INNER JOIN branches b ON d.branch_id = b.branch_id "
+                            + "WHERE d.door_number = ? AND b.branch_id IN (SELECT branch_id FROM branches WHERE user_id = ?) "
+                            + "LIMIT 1) " // Ensure only one result is returned
+                            + "WHERE user_id = ?;";
                     try (PreparedStatement psUpdate = conn.prepareStatement(updateSql)) {
                         psUpdate.setString(1, selectedDoor);
-                        psUpdate.setString(2, userId);
+                        psUpdate.setString(2, userID);
+                        psUpdate.setString(3, userId);
                         int rowsAffected = psUpdate.executeUpdate();
 
                         if (rowsAffected > 0) {
@@ -882,7 +826,7 @@ public class Accounts extends javax.swing.JFrame {
         if (selectedRow != -1) {
             String userId = tbAccounts.getValueAt(selectedRow, 0).toString();
 
-            String billSql = "SELECT * FROM billings WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+            String billSql = "SELECT * FROM billings WHERE user_id = ?";
             StringBuilder billingInfo = new StringBuilder();
             boolean hasUnpaidBill = false;
 
@@ -917,7 +861,7 @@ public class Accounts extends javax.swing.JFrame {
                     "Send Message", JOptionPane.PLAIN_MESSAGE);
 
             if (message != null && !message.trim().isEmpty()) {
-                String insertSql = "INSERT INTO notifications (resident_id, message, status) VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), ?, 'unread')";
+                String insertSql = "INSERT INTO notifications (resident_id, message, status) VALUES (?, ?, 'unread')";
                 try (Connection conn = DBConnection.Connect(); PreparedStatement psInsert = conn.prepareStatement(insertSql)) {
                     psInsert.setString(1, userId);
                     psInsert.setString(2, message);
@@ -946,51 +890,118 @@ public class Accounts extends javax.swing.JFrame {
         this.dispose();
     }//GEN-LAST:event_lblReportMouseClicked
 
+    private void tbPaymentsMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tbPaymentsMouseClicked
+        // TODO add your handling code here:
+    }//GEN-LAST:event_tbPaymentsMouseClicked
+
+    private void btnSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSearchActionPerformed
+        String searchTerm = txtSearch.getText().trim();
+        if (searchTerm.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter a search term.", "Input Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        DefaultTableModel model = (DefaultTableModel) tbAccounts.getModel();
+        model.setRowCount(0); // Clear existing rows
+
+        try (Connection conn = DBConnection.Connect()) {
+            // Modify the SQL query to search for the term in relevant fields
+            String userSql = "SELECT u.user_id "
+                    + "FROM users u "
+                    + "INNER JOIN profiles p ON u.user_id = p.user_id "
+                    + "INNER JOIN doors d ON p.door_id = d.door_id "
+                    + "WHERE (u.role = 'residents') "
+                    + "AND (p.first_name LIKE ? OR p.last_name LIKE ? OR p.contact_number LIKE ?) "
+                    + "ORDER BY u.user_id ASC";
+
+            try (PreparedStatement psUser = conn.prepareStatement(userSql)) {
+                // Use wildcards for searching
+                String searchPattern = "%" + searchTerm + "%";
+                psUser.setString(1, searchPattern);
+                psUser.setString(2, searchPattern);
+                psUser.setString(3, searchPattern);
+                ResultSet rsUser = psUser.executeQuery();
+
+                if (!rsUser.isBeforeFirst()) { // Check if the ResultSet is empty
+                    System.out.println("No accounts found for the search term: " + searchTerm);
+                }
+
+                while (rsUser.next()) {
+                    String userId = rsUser.getString("user_id");
+
+                    // Fetch profile details
+                    String profileSql = "SELECT * FROM profiles WHERE user_id = ?";
+                    try (PreparedStatement psProfile = conn.prepareStatement(profileSql)) {
+                        psProfile.setString(1, userId);
+                        ResultSet rsProfile = psProfile.executeQuery();
+
+                        if (rsProfile.next()) {
+                            String name = rsProfile.getString("first_name") + " " + rsProfile.getString("last_name");
+                            String contact = rsProfile.getString("contact_number");
+                            String sex = rsProfile.getString("sex");
+
+                            // Fetch door details
+                            String doorSql = "SELECT d.door_number FROM doors d "
+                                    + "INNER JOIN profiles p ON d.door_id = p.door_id "
+                                    + "WHERE p.user_id = ?";
+                            String doorNumber = "N/A";
+                            try (PreparedStatement psDoor = conn.prepareStatement(doorSql)) {
+                                psDoor.setString(1, userId);
+                                ResultSet rsDoor = psDoor.executeQuery();
+
+                                if (rsDoor.next()) {
+                                    doorNumber = rsDoor.getString("door_number");
+                                }
+                            }
+
+                            model.addRow(new Object[]{userId, name, contact, sex, doorNumber});
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            showErrorMessage("Database error: " + e.getMessage());
+        }
+    }//GEN-LAST:event_btnSearchActionPerformed
+
+    private void btnSearch1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSearch1ActionPerformed
+        loadAccounts();
+    }//GEN-LAST:event_btnSearch1ActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnAssign;
     private javax.swing.JButton btnDelete;
     private javax.swing.JButton btnMessage;
+    private javax.swing.JButton btnSearch;
+    private javax.swing.JButton btnSearch1;
     private javax.swing.JComboBox<String> cbDoor;
-    private javax.swing.JComboBox<String> cbStatus;
     private javax.swing.JPanel contentPanel;
     private javax.swing.JPanel deetPanel;
     private javax.swing.JPanel heroPanel;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JLabel lblAddress;
     private javax.swing.JLabel lblBG;
     private javax.swing.JLabel lblContact;
-    private javax.swing.JLabel lblContact1;
-    private javax.swing.JLabel lblContact2;
+    private javax.swing.JLabel lblDob;
     private javax.swing.JLabel lblDoor;
     private javax.swing.JLabel lblDoor1;
+    private javax.swing.JLabel lblDoor2;
     private javax.swing.JLabel lblDoors;
-    private javax.swing.JLabel lblElectricUsage;
-    private javax.swing.JLabel lblElectricUsage1;
-    private javax.swing.JLabel lblElectricUsage2;
-    private javax.swing.JLabel lblElectricUsage3;
-    private javax.swing.JLabel lblElectricUsage4;
-    private javax.swing.JLabel lblElectricUsage5;
-    private javax.swing.JLabel lblElectricUsage6;
     private javax.swing.JLabel lblHome;
     private javax.swing.JLabel lblHome1;
     private javax.swing.JLabel lblLogout;
     private javax.swing.JLabel lblName;
     private javax.swing.JLabel lblPfp;
     private javax.swing.JLabel lblReport;
+    private javax.swing.JLabel lblSex;
     private javax.swing.JLabel lblTitle;
     private javax.swing.JPanel mainPanel;
     private javax.swing.JPanel navPanel;
     private javax.swing.JTable tbAccounts;
-    private javax.swing.JTextField txtDob;
-    private javax.swing.JTextField txtDueDate;
-    private javax.swing.JTextField txtEbill;
-    private javax.swing.JTextField txtEusage;
-    private javax.swing.JTextField txtRent;
-    private javax.swing.JTextField txtSex;
-    private javax.swing.JTextField txtTotal;
-    private javax.swing.JTextField txtWbill;
-    private javax.swing.JTextField txtWusage;
+    private javax.swing.JTable tbPayments;
+    private javax.swing.JTextField txtSearch;
     // End of variables declaration//GEN-END:variables
 }

@@ -13,6 +13,8 @@ import javax.swing.JSpinner;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import javax.imageio.ImageIO;
+import javax.swing.JComboBox;
+import javax.swing.JPasswordField;
 
 public class Registration extends javax.swing.JFrame {
     
@@ -36,7 +38,7 @@ public class Registration extends javax.swing.JFrame {
     
     private void loadCities() {
         try (Connection conn = DBConnection.Connect()) {
-            String sql = "SELECT DISTINCT city FROM address";
+            String sql = "SELECT DISTINCT city FROM address ORDER BY city";
             try (PreparedStatement stmt = conn.prepareStatement(sql); ResultSet rs = stmt.executeQuery()) {
                 cbCity.removeAllItems();
                 while (rs.next()) {
@@ -50,7 +52,7 @@ public class Registration extends javax.swing.JFrame {
 
     private void loadMunicipalities(String city) {
         try (Connection conn = DBConnection.Connect()) {
-            String sql = "SELECT DISTINCT municipality FROM address WHERE city = ?";
+            String sql = "SELECT DISTINCT municipality FROM address WHERE city = ? ORDER BY municipality";
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                 stmt.setString(1, city);
                 try (ResultSet rs = stmt.executeQuery()) {
@@ -67,7 +69,7 @@ public class Registration extends javax.swing.JFrame {
     
     private void loadBarangays(String municipality) {
         try (Connection conn = DBConnection.Connect()) {
-            String sql = "SELECT DISTINCT barangay FROM address WHERE municipality = ?";
+            String sql = "SELECT DISTINCT barangay FROM address WHERE municipality = ? ORDER BY barangay";
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                 stmt.setString(1, municipality);
                 try (ResultSet rs = stmt.executeQuery()) {
@@ -134,6 +136,8 @@ public class Registration extends javax.swing.JFrame {
         cbCity = new javax.swing.JComboBox<>();
         cbMunicipality = new javax.swing.JComboBox<>();
         cbBarangay = new javax.swing.JComboBox<>();
+        cbRole = new javax.swing.JComboBox<>();
+        lblUser11 = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -284,6 +288,12 @@ public class Registration extends javax.swing.JFrame {
 
         cbBarangay.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
 
+        cbRole.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        cbRole.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Admin", "Resident" }));
+
+        lblUser11.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        lblUser11.setText("Role:");
+
         javax.swing.GroupLayout mainPanelLayout = new javax.swing.GroupLayout(mainPanel);
         mainPanel.setLayout(mainPanelLayout);
         mainPanelLayout.setHorizontalGroup(
@@ -318,10 +328,6 @@ public class Registration extends javax.swing.JFrame {
                                         .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                                             .addComponent(lblUser9)
                                             .addComponent(cbMunicipality, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)))))
-                            .addGroup(javax.swing.GroupLayout.Alignment.LEADING, mainPanelLayout.createSequentialGroup()
-                                .addComponent(btnBack)
-                                .addGap(18, 18, 18)
-                                .addComponent(btnRegister, javax.swing.GroupLayout.PREFERRED_SIZE, 373, javax.swing.GroupLayout.PREFERRED_SIZE))
                             .addGroup(javax.swing.GroupLayout.Alignment.LEADING, mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                                 .addGroup(mainPanelLayout.createSequentialGroup()
                                     .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -353,7 +359,15 @@ public class Registration extends javax.swing.JFrame {
                                 .addGroup(mainPanelLayout.createSequentialGroup()
                                     .addComponent(txtReEnter, javax.swing.GroupLayout.PREFERRED_SIZE, 240, javax.swing.GroupLayout.PREFERRED_SIZE)
                                     .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                    .addComponent(btnChoose))))
+                                    .addComponent(btnChoose))
+                                .addGroup(mainPanelLayout.createSequentialGroup()
+                                    .addComponent(btnBack)
+                                    .addGap(18, 18, 18)
+                                    .addComponent(btnRegister, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                    .addGap(18, 18, 18)
+                                    .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(cbRole, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(lblUser11)))))
                         .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
@@ -400,10 +414,11 @@ public class Registration extends javax.swing.JFrame {
                     .addComponent(lblUser10)
                     .addComponent(lblUser7))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(txtReEnter, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(cbBarangay, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(btnChoose, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(btnChoose, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(txtReEnter, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(cbBarangay, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(mainPanelLayout.createSequentialGroup()
@@ -418,11 +433,19 @@ public class Registration extends javax.swing.JFrame {
                         .addComponent(lblUser6)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(spDob, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 16, Short.MAX_VALUE)
-                .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(btnRegister, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(btnBack, javax.swing.GroupLayout.PREFERRED_SIZE, 50, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(19, 19, 19))
+                .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(mainPanelLayout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 16, Short.MAX_VALUE)
+                        .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(btnRegister, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(btnBack, javax.swing.GroupLayout.PREFERRED_SIZE, 50, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(19, 19, 19))
+                    .addGroup(mainPanelLayout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(lblUser11)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(cbRole, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -462,6 +485,22 @@ public class Registration extends javax.swing.JFrame {
         this.setVisible(false);
     }//GEN-LAST:event_btnBackActionPerformed
 
+    private boolean verifySuperUserPassword(String password) {
+        try (Connection conn = DBConnection.Connect()) {
+            String sql = "SELECT password FROM users WHERE role = 'super'";
+            try (PreparedStatement stmt = conn.prepareStatement(sql); ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    String storedPassword = rs.getString("password");
+                    // Here you should compare the hashed password if you are using hashing
+                    return password.equals(storedPassword); // Change this to a proper password comparison
+                }
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Database error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+        return false;
+    }
+    
     private void btnRegisterActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRegisterActionPerformed
         String username = txtUser.getText();
         String email = txtEmail.getText();
@@ -480,7 +519,6 @@ public class Registration extends javax.swing.JFrame {
         String selectedMunicipality = (String) cbMunicipality.getSelectedItem();
         String selectedBarangay = (String) cbBarangay.getSelectedItem();
 
-        // Retrieve the address_id based on the selected address
         String addressId = getAddressId(selectedCity, selectedMunicipality, selectedBarangay);
 
         if (username.isEmpty() || email.isEmpty() || password.isEmpty()
@@ -493,6 +531,35 @@ public class Registration extends javax.swing.JFrame {
         if (!password.equals(reEnteredPassword)) {
             JOptionPane.showMessageDialog(this, "Passwords do not match.", "Input Error", JOptionPane.ERROR_MESSAGE);
             return;
+        }
+
+        String selectedRole = (String) cbRole.getSelectedItem();
+        String selectedBranch = null; // Variable to hold the selected branch
+
+        if ("Admin".equals(selectedRole)) {
+            JPasswordField passwordField = new JPasswordField();
+            JComboBox<String> cbBranch = new JComboBox<>();
+            loadBranches(cbBranch); // Load branches into the combo box
+
+            Object[] message = {
+                "Enter Super User Password:", passwordField,
+                "Select Branch:", cbBranch
+            };
+
+            int option = JOptionPane.showConfirmDialog(this, message, "Admin Registration", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+            if (option == JOptionPane.OK_OPTION) {
+                String superUserPassword = new String(passwordField.getPassword());
+
+                if (!verifySuperUserPassword(superUserPassword)) {
+                JOptionPane.showMessageDialog(this, "Invalid Super User Password.", "Authentication Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                selectedBranch = (String) cbBranch.getSelectedItem();
+            } else {
+                return;
+            }
         }
 
         try (Connection conn = DBConnection.Connect()) {
@@ -508,15 +575,26 @@ public class Registration extends javax.swing.JFrame {
                 }
             }
 
-            String userSql = "INSERT INTO users (username, email, password) VALUES (?, ?, ?)";
+            if ("Admin".equals(selectedRole)) {
+                selectedRole = "admins";
+            } else {
+                selectedRole = "residents";
+            }
+
+            String userSql = "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)";
             String insertSql = "INSERT INTO profiles (user_id, address_id, first_name, last_name, contact_number, sex, date_of_birth, profile_picture) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-            String residentSql = "INSERT INTO residents(user_id) VALUES (?)";
+            String branchIdSql = "SELECT branch_id FROM branches b "
+                    + "INNER JOIN address a ON b.address_id = a.address_id "
+                    + "WHERE a.municipality = ?";
+            String branchSql = "UPDATE branches SET user_id = ? WHERE branch_id = ?";
             try (PreparedStatement userStmt = conn.prepareStatement(userSql, PreparedStatement.RETURN_GENERATED_KEYS)) {
                 userStmt.setString(1, username);
                 userStmt.setString(2, email);
                 userStmt.setString(3, password);
+                userStmt.setString(4, selectedRole);
                 userStmt.executeUpdate();
-                try (PreparedStatement insertStmt = conn.prepareStatement(insertSql); PreparedStatement residentStmt = conn.prepareStatement(residentSql)) {
+
+                try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
                     ResultSet keys = userStmt.getGeneratedKeys();
                     if (keys.next()) {
                         String user_id = keys.getString(1);
@@ -535,19 +613,49 @@ public class Registration extends javax.swing.JFrame {
                         }
                         insertStmt.executeUpdate();
 
-                        residentStmt.setString(1, user_id);
-                        residentStmt.executeUpdate();
+                        JOptionPane.showMessageDialog(this, "Registration successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
+
+                        if ("admins".equals(selectedRole)) {
+                            try (PreparedStatement psB = conn.prepareStatement(branchSql)) {
+                                try (PreparedStatement psID = conn.prepareStatement(branchIdSql)) {
+                                    String modifiedBranch = selectedBranch.replace("Branch", "").trim();
+                                    psID.setString(1, modifiedBranch);
+                                    ResultSet rsID = psID.executeQuery();
+                                    if (rsID.next()) {
+                                        psB.setString(1, user_id);
+                                        psB.setInt(2, rsID.getInt("branch_id"));
+                                        psB.executeUpdate();
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Login loginForm = Login.getInstance();
+                        loginForm.setVisible(true);
+                        this.setVisible(false);
                     }
                 }
-
-                JOptionPane.showMessageDialog(this, "Registration successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
-                btnBackActionPerformed(evt);
             }
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(this, "Database error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }//GEN-LAST:event_btnRegisterActionPerformed
 
+    private void loadBranches(JComboBox<String> cbBranch) {
+        try (Connection conn = DBConnection.Connect()) {
+            String sql = "SELECT CONCAT(a.municipality, ' Branch') AS branch_name FROM branches b "
+                    + "INNER JOIN address a ON b.address_id = a.address_id "
+                    + "ORDER BY a.municipality";
+            try (PreparedStatement stmt = conn.prepareStatement(sql); ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    cbBranch.addItem(rs.getString("branch_name"));
+                }
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Error loading branches: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
     private void txtFnameActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtFnameActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_txtFnameActionPerformed
@@ -595,6 +703,7 @@ public class Registration extends javax.swing.JFrame {
     private javax.swing.JComboBox<String> cbBarangay;
     private javax.swing.JComboBox<String> cbCity;
     private javax.swing.JComboBox<String> cbMunicipality;
+    private javax.swing.JComboBox<String> cbRole;
     private javax.swing.JComboBox<String> cbSex;
     private javax.swing.JLabel lblPass;
     private javax.swing.JLabel lblPass1;
@@ -602,6 +711,7 @@ public class Registration extends javax.swing.JFrame {
     private javax.swing.JLabel lblUser;
     private javax.swing.JLabel lblUser1;
     private javax.swing.JLabel lblUser10;
+    private javax.swing.JLabel lblUser11;
     private javax.swing.JLabel lblUser2;
     private javax.swing.JLabel lblUser3;
     private javax.swing.JLabel lblUser4;

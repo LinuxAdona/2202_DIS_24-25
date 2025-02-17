@@ -30,6 +30,10 @@ public class History extends javax.swing.JFrame {
         loadPaymentsHistory();
     }
     
+    private String getLoggedInUserID() {
+        return Login.loggedInUserID;
+    }
+    
     private void loadPaymentsHistory() {
         DefaultTableModel model = (DefaultTableModel) tbPayments.getModel();
         model.setRowCount(0); // Clear existing rows
@@ -42,10 +46,14 @@ public class History extends javax.swing.JFrame {
 
         String query = "SELECT b.rent, b.electric_usage, b.water_usage, p.amount_paid, p.date_paid "
                 + "FROM Billings b "
-                + "JOIN Payments p ON b.resident_id = p.resident_id "
-                + "WHERE b.status = 'paid'";
+                + "JOIN Payments p ON b.user_id = p.user_id "
+                + "JOIN Users u ON p.user_id = u.user_id "
+                + "WHERE b.status = 'paid' AND u.user_id = ?";
 
-        try (Connection conn = DBConnection.Connect(); PreparedStatement pstmt = conn.prepareStatement(query); ResultSet rs = pstmt.executeQuery()) {
+        try (Connection conn = DBConnection.Connect(); PreparedStatement pstmt = conn.prepareStatement(query)) {
+            String userID = getLoggedInUserID();
+            pstmt.setString(1, userID);
+            ResultSet rs = pstmt.executeQuery();
 
             while (rs.next()) {
                 // Assuming the columns are in the order: Rent, Electricity Bill, Water Bill, Amount Paid, Date

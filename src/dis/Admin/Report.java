@@ -4,13 +4,7 @@
  */
 package dis.Admin;
 
-import Database.DBConnection;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import javax.swing.JOptionPane;
-import javax.swing.table.DefaultTableModel;
 import strt.Login;
 
 /**
@@ -20,54 +14,10 @@ import strt.Login;
 public class Report extends javax.swing.JFrame {
 
     /**
-     * Creates new form Summary
+     * Creates new form Report
      */
     public Report() {
         initComponents();
-        loadReport();
-    }
-    
-    private void loadReport() {
-        DefaultTableModel model = (DefaultTableModel) tbReport.getModel();
-        model.setRowCount(0); // Clear existing rows
-
-        tbReport.getTableHeader().setReorderingAllowed(false);
-
-        for (int i = 0; i < tbReport.getColumnModel().getColumnCount(); i++) {
-            tbReport.getColumnModel().getColumn(i).setResizable(false);
-        }
-
-        String query = "SELECT b.rent, b.electric_usage, b.water_usage, p.amount_paid, p.date_paid, b.due_date, b.status "
-                + "FROM Billings b "
-                + "JOIN Payments p ON b.resident_id = p.resident_id "
-                + "ORDER BY p.date_paid";
-
-        double totalAmountPaid = 0.0; // Initialize total amount variable
-
-        try (Connection conn = DBConnection.Connect(); PreparedStatement pstmt = conn.prepareStatement(query); ResultSet rs = pstmt.executeQuery()) {
-
-            while (rs.next()) {
-                // Create an array with the correct size (7)
-                Object[] row = new Object[7];
-                row[0] = rs.getBigDecimal("rent"); // Rent
-                row[1] = String.format("PHP %.2f", rs.getBigDecimal("electric_usage")); // Electricity Bill
-                row[2] = String.format("PHP %.2f", rs.getBigDecimal("water_usage")); // Water Bill
-                double amountPaid = rs.getDouble("amount_paid"); // Amount Paid
-                row[3] = String.format("PHP %.2f", amountPaid); // Amount Paid
-                row[4] = rs.getDate("date_paid"); // Date Paid
-                row[5] = rs.getDate("due_date"); // Due Date
-                row[6] = rs.getString("status"); // Status
-
-                model.addRow(row); // Add the row to the table model
-
-                totalAmountPaid += amountPaid; // Accumulate the total amount paid
-            }
-
-            // Set the total amount paid to the txtTotal field
-            txtTotal.setText("PHP " + String.format("%.2f", totalAmountPaid)); // Format to 2 decimal places
-        } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Error loading Report: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
     }
 
     /**
@@ -85,18 +35,16 @@ public class Report extends javax.swing.JFrame {
         lblLogout = new javax.swing.JLabel();
         lblHome1 = new javax.swing.JLabel();
         lblDoors = new javax.swing.JLabel();
-        lblHome4 = new javax.swing.JLabel();
+        lblReport = new javax.swing.JLabel();
         contentPanel = new javax.swing.JPanel();
         heroPanel = new javax.swing.JPanel();
         lblTitle = new javax.swing.JLabel();
         lblBG = new javax.swing.JLabel();
         deetPanel = new javax.swing.JPanel();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        tbReport = new javax.swing.JTable();
-        txtTotal = new javax.swing.JTextField();
-        lblElectricUsage6 = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setAlwaysOnTop(true);
+        setResizable(false);
 
         mainPanel.setBackground(new java.awt.Color(132, 176, 255));
 
@@ -138,11 +86,16 @@ public class Report extends javax.swing.JFrame {
             }
         });
 
-        lblHome4.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblHome4.setForeground(new java.awt.Color(0, 128, 241));
-        lblHome4.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/report-solid-24 (1).png"))); // NOI18N
-        lblHome4.setText(" Report");
-        lblHome4.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblReport.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
+        lblReport.setForeground(new java.awt.Color(0, 128, 241));
+        lblReport.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/report-solid-24 (1).png"))); // NOI18N
+        lblReport.setText(" Report");
+        lblReport.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblReport.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                lblReportMouseClicked(evt);
+            }
+        });
 
         javax.swing.GroupLayout navPanelLayout = new javax.swing.GroupLayout(navPanel);
         navPanel.setLayout(navPanelLayout);
@@ -156,7 +109,7 @@ public class Report extends javax.swing.JFrame {
                         .addComponent(lblHome1, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 123, Short.MAX_VALUE)
                         .addComponent(lblHome, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(lblDoors, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(lblHome4, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                        .addComponent(lblReport, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addGap(22, 22, 22))
         );
         navPanelLayout.setVerticalGroup(
@@ -169,8 +122,8 @@ public class Report extends javax.swing.JFrame {
                 .addGap(18, 18, 18)
                 .addComponent(lblDoors)
                 .addGap(18, 18, 18)
-                .addComponent(lblHome4)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 278, Short.MAX_VALUE)
+                .addComponent(lblReport)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(lblLogout)
                 .addGap(30, 30, 30))
         );
@@ -207,58 +160,15 @@ public class Report extends javax.swing.JFrame {
 
         deetPanel.setBackground(new java.awt.Color(247, 247, 247));
 
-        tbReport.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        tbReport.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null, null, null, null, null, null},
-                {null, null, null, null, null, null, null},
-                {null, null, null, null, null, null, null},
-                {null, null, null, null, null, null, null}
-            },
-            new String [] {
-                "Rent", "Electricity Bill", "Water Bill", "Amount Paid", "Date Paid", "Due Date", "Status"
-            }
-        ));
-        tbReport.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        tbReport.setRowHeight(30);
-        tbReport.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                tbReportMouseClicked(evt);
-            }
-        });
-        jScrollPane1.setViewportView(tbReport);
-
-        txtTotal.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
-        txtTotal.setFocusable(false);
-
-        lblElectricUsage6.setFont(new java.awt.Font("Poppins", 1, 24)); // NOI18N
-        lblElectricUsage6.setText("Total :");
-
         javax.swing.GroupLayout deetPanelLayout = new javax.swing.GroupLayout(deetPanel);
         deetPanel.setLayout(deetPanelLayout);
         deetPanelLayout.setHorizontalGroup(
             deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(deetPanelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane1)
-                    .addGroup(deetPanelLayout.createSequentialGroup()
-                        .addComponent(lblElectricUsage6)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(txtTotal, javax.swing.GroupLayout.PREFERRED_SIZE, 210, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(0, 0, Short.MAX_VALUE)))
-                .addContainerGap())
+            .addGap(0, 815, Short.MAX_VALUE)
         );
         deetPanelLayout.setVerticalGroup(
             deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(deetPanelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(lblElectricUsage6, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(txtTotal))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addGap(0, 500, Short.MAX_VALUE)
         );
 
         javax.swing.GroupLayout contentPanelLayout = new javax.swing.GroupLayout(contentPanel);
@@ -328,9 +238,11 @@ public class Report extends javax.swing.JFrame {
         this.dispose();
     }//GEN-LAST:event_lblDoorsMouseClicked
 
-    private void tbReportMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tbReportMouseClicked
-
-    }//GEN-LAST:event_tbReportMouseClicked
+    private void lblReportMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblReportMouseClicked
+        Report report = new Report();
+        report.setVisible(true);
+        this.dispose();
+    }//GEN-LAST:event_lblReportMouseClicked
 
     /**
      * @param args the command line arguments
@@ -358,7 +270,6 @@ public class Report extends javax.swing.JFrame {
             java.util.logging.Logger.getLogger(Report.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
         //</editor-fold>
-        //</editor-fold>
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
@@ -372,18 +283,14 @@ public class Report extends javax.swing.JFrame {
     private javax.swing.JPanel contentPanel;
     private javax.swing.JPanel deetPanel;
     private javax.swing.JPanel heroPanel;
-    private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JLabel lblBG;
     private javax.swing.JLabel lblDoors;
-    private javax.swing.JLabel lblElectricUsage6;
     private javax.swing.JLabel lblHome;
     private javax.swing.JLabel lblHome1;
-    private javax.swing.JLabel lblHome4;
     private javax.swing.JLabel lblLogout;
+    private javax.swing.JLabel lblReport;
     private javax.swing.JLabel lblTitle;
     private javax.swing.JPanel mainPanel;
     private javax.swing.JPanel navPanel;
-    private javax.swing.JTable tbReport;
-    private javax.swing.JTextField txtTotal;
     // End of variables declaration//GEN-END:variables
 }

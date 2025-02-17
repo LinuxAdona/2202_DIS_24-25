@@ -77,7 +77,7 @@ public class Resident_DB extends javax.swing.JFrame {
                 }
             }
             String unreadNotificationsSql = "SELECT COUNT(*) AS unread_count FROM notifications "
-                    + "WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?) AND status = 'unread'";
+                    + "WHERE user_id = ? AND status = 'unread'";
             try (PreparedStatement unreadPs = conn.prepareStatement(unreadNotificationsSql)) {
                 unreadPs.setString(1, userID);
                 ResultSet unreadRs = unreadPs.executeQuery();
@@ -100,28 +100,13 @@ public class Resident_DB extends javax.swing.JFrame {
         }
 
         try (Connection conn = DBConnection.Connect()) {
-            // Get the resident_id for the logged-in user
-            String residentIdSql = "SELECT resident_id FROM residents WHERE user_id = ?";
-            int residentId = -1; // Default value if not found
-            try (PreparedStatement residentPs = conn.prepareStatement(residentIdSql)) {
-                residentPs.setString(1, userID);
-                ResultSet residentRs = residentPs.executeQuery();
-                if (residentRs.next()) {
-                    residentId = residentRs.getInt("resident_id");
-                } else {
-                    showErrorMessage("Resident ID not found for the logged-in user.");
-                    return;
-                }
-            }
-
-            // Now get the electric and water usage for the specific resident
-            String eSql = "SELECT IFNULL(SUM(meter_usage), 0) AS electric_usage FROM meters WHERE meter_type = 'electric' AND resident_id = ?";
-            String wSql = "SELECT IFNULL(SUM(meter_usage), 0) AS water_usage FROM meters WHERE meter_type = 'water' AND resident_id = ?";
+            String eSql = "SELECT IFNULL(SUM(meter_usage), 0) AS electric_usage FROM meters WHERE meter_type = 'electric' AND user_id = ?";
+            String wSql = "SELECT IFNULL(SUM(meter_usage), 0) AS water_usage FROM meters WHERE meter_type = 'water' AND user_id = ?";
 
             try (PreparedStatement psE = conn.prepareStatement(eSql); PreparedStatement psW = conn.prepareStatement(wSql)) {
 
-                psE.setInt(1, residentId);
-                psW.setInt(1, residentId);
+                psE.setString(1, userID);
+                psW.setString(1, userID);
 
                 try (ResultSet rsE = psE.executeQuery(); ResultSet rsW = psW.executeQuery()) {
 
@@ -150,44 +135,56 @@ public class Resident_DB extends javax.swing.JFrame {
             SimpleDateFormat dateFormat = new SimpleDateFormat("MMMM dd, yyyy");
 
             // Fetch pending payments
-            String billingSql = "SELECT rent, water_usage, electric_usage, total_due, due_date, status "
+            String billingSql = "SELECT rent, due_date, status, meter_type, meter_bill "
                     + "FROM billings "
-                    + "WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?) "
+                    + "WHERE user_id = ? "
                     + "AND status = 'unpaid'";
             try (PreparedStatement billingPs = conn.prepareStatement(billingSql)) {
                 billingPs.setString(1, userID);
                 ResultSet billingRs = billingPs.executeQuery();
 
-                // Check if there are pending payments
-                if (billingRs.next()) {
-                    // If there are pending payments, retrieve the values
-                    double rent = billingRs.getDouble("rent");
-                    double waterUsage = billingRs.getDouble("water_usage");
-                    double electricUsage = billingRs.getDouble("electric_usage");
-                    double total_due = billingRs.getDouble("total_due");
-                    java.sql.Date dueDateSql = billingRs.getDate("due_date");
-                    String formattedDueDate = dateFormat.format(dueDateSql);
+                double totalRent = 0;
+                double totalWaterBill = 0;
+                double totalElectricBill = 0;
+                String formattedDueDate = null;
 
-                    // Set the text fields with the retrieved values
-                    txtRent.setText("PHP " + rent);
-                    txtWater.setText("PHP " + waterUsage);
-                    txtElectric.setText("PHP " + electricUsage);
-                    txtTotal.setText("PHP " + total_due);
-                    txtDueDate.setText(formattedDueDate);
+                // Loop through all billing records
+                while (billingRs.next()) {
+                    // Accumulate rent
+                    totalRent += billingRs.getDouble("rent");
 
-                    // Check if the due date has passed
-                    if (dueDateSql.before(new java.sql.Date(System.currentTimeMillis()))) {
-                        // Create a notification
-                        String notificationMessage = "Your payment is overdue! Total due: PHP " + total_due;
-                        createNotification(conn, notificationMessage);
+                    // Get the due date (assuming all records have the same due date)
+                    if (formattedDueDate == null) {
+                        java.sql.Date dueDateSql = billingRs.getDate("due_date");
+                        formattedDueDate = dateFormat.format(dueDateSql);
                     }
-                } else {
-                    // If no pending payments, set fields to N/A
-                    txtRent.setText("N/A");
-                    txtWater.setText("N/A");
-                    txtElectric.setText("N/A");
-                    txtTotal.setText("N/A");
-                    txtDueDate.setText("N/A");
+
+                    // Accumulate meter bills based on meter type
+                    String meterType = billingRs.getString("meter_type");
+                    double meterBill = billingRs.getDouble("meter_bill");
+
+                    if ("water".equals(meterType)) {
+                        totalWaterBill += meterBill;
+                    } else if ("electric".equals(meterType)) {
+                        totalElectricBill += meterBill;
+                    }
+                }
+
+                // Set the text fields with the accumulated values
+                txtRent.setText("PHP " + totalRent);
+                txtWater.setText("PHP " + totalWaterBill);
+                txtElectric.setText("PHP " + totalElectricBill);
+
+                // Calculate total due
+                double totalDue = totalRent + totalWaterBill + totalElectricBill;
+                txtTotal.setText("PHP " + totalDue);
+                txtDueDate.setText(formattedDueDate != null ? formattedDueDate : "");
+
+                // Check if the due date has passed
+                if (formattedDueDate != null && java.sql.Date.valueOf(formattedDueDate).before(new java.sql.Date(System.currentTimeMillis()))) {
+                    // Create a notification
+                    String notificationMessage = "Your payment is overdue! Total due: PHP " + totalDue;
+                    createNotification(conn, notificationMessage);
                 }
             }
         } catch (SQLException e) {
@@ -196,12 +193,12 @@ public class Resident_DB extends javax.swing.JFrame {
     }
 
     private void createNotification(Connection conn, String message) throws SQLException {
-        String insertNotificationSql = "INSERT INTO notifications (resident_id, message, status) VALUES "
-                + "((SELECT resident_id FROM residents WHERE user_id = ?), ?, 'unread')";
+        String insertNotificationSql = "INSERT INTO notifications (user_id, message, status) VALUES "
+                + "((SELECT user_id FROM users WHERE user_id = ?), ?, 'unread')";
         try (PreparedStatement insertNotificationPs = conn.prepareStatement(insertNotificationSql)) {
             insertNotificationPs.setString(1, getLoggedInUserID()
             );
-        insertNotificationPs.setString(2, message);
+            insertNotificationPs.setString(2, message);
             insertNotificationPs.executeUpdate();
         }
     }
@@ -426,13 +423,14 @@ public class Resident_DB extends javax.swing.JFrame {
             cardPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, cardPanel1Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(cardPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(jLabel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(cardPanel1Layout.createSequentialGroup()
-                        .addComponent(lblEusage, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jLabel3)))
+                .addComponent(jLabel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
+            .addGroup(cardPanel1Layout.createSequentialGroup()
+                .addGap(20, 20, 20)
+                .addComponent(lblEusage, javax.swing.GroupLayout.PREFERRED_SIZE, 36, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel3)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         cardPanel3.setBackground(new java.awt.Color(255, 255, 255));
@@ -466,13 +464,14 @@ public class Resident_DB extends javax.swing.JFrame {
             cardPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, cardPanel3Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(cardPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(jLabel8, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(cardPanel3Layout.createSequentialGroup()
-                        .addComponent(lblWusage, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jLabel7)))
+                .addComponent(jLabel8, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
+            .addGroup(cardPanel3Layout.createSequentialGroup()
+                .addGap(21, 21, 21)
+                .addComponent(lblWusage, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel7)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout btmPanelLayout = new javax.swing.GroupLayout(btmPanel);
@@ -677,7 +676,7 @@ public class Resident_DB extends javax.swing.JFrame {
         // Check payment conditions
         try (Connection conn = DBConnection.Connect()) {
             // Fetch current billing details for the logged-in user
-            String billingSql = "SELECT rent, water_usage, electric_usage, due_date FROM billings WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+            String billingSql = "SELECT rent, water_usage, electric_usage, due_date FROM billings WHERE user_id = ?";
             double rent = 0, waterUsage = 0, electricUsage = 0;
             java.sql.Date dueDate = null;
 
@@ -728,7 +727,7 @@ public class Resident_DB extends javax.swing.JFrame {
                 } else if (selectedOption.equals("Electric Usage")) {
                     updateUsageSql += "electric_usage = electric_usage - ? ";
                 }
-                updateUsageSql += "WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+                updateUsageSql += "WHERE user_id = ?";
 
                 try (PreparedStatement updateUsagePs = conn.prepareStatement(updateUsageSql)) {
                     updateUsagePs.setDouble(1, paymentAmount);
@@ -737,7 +736,7 @@ public class Resident_DB extends javax.swing.JFrame {
                 }
 
                 // Insert payment record
-                String paymentSql = "INSERT INTO payments (resident_id, amount_paid, date_paid) VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), ?, CURDATE())";
+                String paymentSql = "INSERT INTO payments (resident_id, amount_paid, date_paid) VALUES ((SELECT user_id FROM users WHERE user_id = ?), ?, CURDATE())";
                 try (PreparedStatement paymentPs = conn.prepareStatement(paymentSql)) {
                     paymentPs.setString(1, userID);
                     paymentPs.setDouble(2, paymentAmount);
@@ -747,7 +746,7 @@ public class Resident_DB extends javax.swing.JFrame {
                 JOptionPane.showMessageDialog(this, "Payment of PHP " + paymentAmount + " applied to " + selectedOption + ".");
             } else if (paymentAmount == totalDue) {
                 // Update the existing billing record to set it as 'paid'
-                String billingUpdateSql = "UPDATE billings SET status = 'paid' WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+                String billingUpdateSql = "UPDATE billings SET status = 'paid' WHERE resident_id = (SELECT user_id FROM users WHERE user_id = ?)";
                 try (PreparedStatement billingPs = conn.prepareStatement(billingUpdateSql)) {
                     billingPs.setString(1, userID);
                     billingPs.executeUpdate();
@@ -758,7 +757,7 @@ public class Resident_DB extends javax.swing.JFrame {
 
                 // Insert a new billing record with 0 usages and the new due date
                 String newBillingSql = "INSERT INTO billings (resident_id, rent, water_usage, electric_usage, due_date, status) "
-                        + "VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), ?, 0, 0, ?, 'unpaid')";
+                        + "VALUES ((SELECT user_id FROM users WHERE user_id = ?), ?, 0, 0, ?, 'unpaid')";
                 try (PreparedStatement newBillingPs = conn.prepareStatement(newBillingSql)) {
                     newBillingPs.setString(1, userID);
                     newBillingPs.setDouble(2, rent); // Keep the original rent
@@ -767,7 +766,7 @@ public class Resident_DB extends javax.swing.JFrame {
                 }
 
                 // Insert payment record
-                String paymentSql = "INSERT INTO payments (resident_id, amount_paid, date_paid) VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), ?, CURDATE())";
+                String paymentSql = "INSERT INTO payments (resident_id, amount_paid, date_paid) VALUES ((SELECT user_id FROM users WHERE user_id = ?), ?, CURDATE())";
                 try (PreparedStatement paymentPs = conn.prepareStatement(paymentSql)) {
                     paymentPs.setString(1, userID);
                     paymentPs.setDouble(2, paymentAmount);
@@ -778,7 +777,7 @@ public class Resident_DB extends javax.swing.JFrame {
             } else if (paymentAmount > totalDue) {
                 // Similar changes for this scenario as well
                 // Update the existing billing record to set it as 'paid'
-                String billingUpdateSql = "UPDATE billings SET status = 'paid' WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+                String billingUpdateSql = "UPDATE billings SET status = 'paid' WHERE resident_id = (SELECT user_id FROM users WHERE user_id = ?)";
                 try (PreparedStatement billingPs = conn.prepareStatement(billingUpdateSql)) {
                     billingPs.setString(1, userID);
                     billingPs.executeUpdate();
@@ -789,7 +788,7 @@ public class Resident_DB extends javax.swing.JFrame {
 
                 // Insert a new billing record with 0 usages and the new due date
                 String newBillingSql = "INSERT INTO billings (resident_id, rent, water_usage, electric_usage, due_date, status) "
-                        + "VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), 2000, 0, 0, ?, 'unpaid')";
+                        + "VALUES ((SELECT user_id FROM users WHERE user_id = ?), 2000, 0, 0, ?, 'unpaid')";
                 try (PreparedStatement newBillingPs = conn.prepareStatement(newBillingSql)) {
                     newBillingPs.setString(1, userID);
                     newBillingPs.setDate(2, newDueDate); // Use the new due date
@@ -797,7 +796,7 @@ public class Resident_DB extends javax.swing.JFrame {
                 }
 
                 // Insert payment record for the total due amount
-                String paymentSql = "INSERT INTO payments (resident_id, amount_paid, date_paid) VALUES ((SELECT resident_id FROM residents WHERE user_id = ?), ?, CURDATE())";
+                String paymentSql = "INSERT INTO payments (resident_id, amount_paid, date_paid) VALUES ((SELECT user_id FROM users WHERE user_id = ?), ?, CURDATE())";
                 try (PreparedStatement paymentPs = conn.prepareStatement(paymentSql)) {
                     paymentPs.setString(1, userID);
                     paymentPs.setDouble(2, totalDue); // Only accept the amount equal to the total due
@@ -829,7 +828,7 @@ public class Resident_DB extends javax.swing.JFrame {
 
         try (Connection conn = DBConnection.Connect()) {
             String notificationsSql = "SELECT notif_id, message, notif_date, status FROM notifications "
-                    + "WHERE resident_id = (SELECT resident_id FROM residents WHERE user_id = ?)";
+                    + "WHERE user_id = ?";
             try (PreparedStatement notificationsPs = conn.prepareStatement(notificationsSql)) {
                 notificationsPs.setString(1, userID);
                 ResultSet notificationsRs = notificationsPs.executeQuery();

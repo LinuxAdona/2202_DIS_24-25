@@ -4,14 +4,18 @@
  */
 package dis.Admin;
 
+import obj.AvailabilityCellRenderer;
 import javax.swing.JOptionPane;
 import strt.Login;
 import Database.DBConnection;
+import java.awt.Color;
+import java.awt.Component;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import javax.swing.JOptionPane;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 
 /**
@@ -27,29 +31,39 @@ public class Doors extends javax.swing.JFrame {
         initComponents();
         loadDoors();
     }
-    
+
     private void showErrorMessage(String message) {
         JOptionPane.showMessageDialog(this, message, "Login Error", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private String getLoggedInUserID() {
+        return Login.loggedInUserID;
     }
     
     private void loadDoors() {
         DefaultTableModel model = (DefaultTableModel) tbDoors.getModel();
-        model.setRowCount(0); // Clear existing data
+        model.setRowCount(0);
+        String userID = getLoggedInUserID();
 
         for (int i = 0; i < tbDoors.getColumnModel().getColumnCount(); i++) {
             tbDoors.getColumnModel().getColumn(i).setResizable(false);
         }
         
+        tbDoors.setDefaultRenderer(Object.class, new AvailabilityCellRenderer());
+        
         try (Connection conn = DBConnection.Connect()) {
-            String sql = "SELECT d.door_id, d.door_number, "
-                    + "(4 - (SELECT COUNT(*) FROM profiles WHERE door_id = d.door_id)) AS capacity "
-                    + "FROM doors d";
-            try (PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            String sql = "SELECT d.door_id, d.door_number, d.available "
+                    + "FROM doors d "
+                    + "WHERE branch_id = (SELECT branch_id FROM branches WHERE user_id = ?)";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, userID);
+                ResultSet rs = ps.executeQuery();
                 while (rs.next()) {
-                    int doorId = rs.getInt("door_id");
+                    int doorID = rs.getInt("door_id");
                     int doorNumber = rs.getInt("door_number");
-                    int capacity = rs.getInt("capacity");
-                    model.addRow(new Object[]{doorId, doorNumber, capacity});
+                    int available = rs.getInt("available");
+                    String availability = (available == 0 || available < 0) ? "Unavailable" : "Available";
+                    model.addRow(new Object[]{doorID, doorNumber, availability});
                 }
             }
         } catch (SQLException e) {
@@ -69,23 +83,22 @@ public class Doors extends javax.swing.JFrame {
         double totalWaterUsage = 0;
 
         try (Connection conn = DBConnection.Connect()) {
-            String sql = "SELECT r.resident_id, p.first_name, p.last_name, p.contact_number "
+            String sql = "SELECT u.user_id, p.first_name, p.last_name, p.contact_number "
                     + "FROM profiles p "
-                    + "JOIN residents r ON p.user_id = r.user_id "
-                    + "JOIN users u ON r.user_id = u.user_id "
+                    + "JOIN users u ON p.user_id = u.user_id "
                     + "WHERE p.door_id = ?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setInt(1, doorId);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
-                        int userId = rs.getInt("resident_id");
+                        int userId = rs.getInt("user_id");
                         String name = rs.getString("first_name") + " " + rs.getString("last_name");
                         String contact = rs.getString("contact_number");
                         model.addRow(new Object[]{userId, name, contact});
 
                         String usageSql = "SELECT SUM(meter_usage) AS total_usage, meter_type "
                                 + "FROM meters "
-                                + "WHERE resident_id = ? "
+                                + "WHERE user_id = ? "
                                 + "GROUP BY meter_type";
                         try (PreparedStatement psUsage = conn.prepareStatement(usageSql)) {
                             psUsage.setInt(1, userId);
@@ -112,15 +125,23 @@ public class Doors extends javax.swing.JFrame {
         lblWusage.setText(totalWaterUsage + " m³");
     }
 
-    private void loadUsage(int residentId) {
+    private void loadUsage(int userID) {
         try (Connection conn = DBConnection.Connect()) {
             String sql = "SELECT SUM(meter_usage) AS total_usage, meter_type "
                     + "FROM meters "
-                    + "WHERE resident_id = ? "
+                    + "WHERE user_id = ? "
                     + "GROUP BY meter_type";
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setInt(1, residentId);
-                try (ResultSet rs = ps.executeQuery()) {
+            String sqlEb = "SELECT IFNULL(SUM(meter_bill), 0) AS totalElectricityBill FROM billings WHERE meter_type = 'electric' AND user_id = ?";
+            String sqlWb = "SELECT IFNULL(SUM(meter_bill), 0) AS totalWaterBill FROM billings WHERE meter_type = 'water' AND user_id = ?";
+            try (PreparedStatement ps = conn.prepareStatement(sql);
+                    PreparedStatement psE = conn.prepareStatement(sqlEb);
+                    PreparedStatement psW = conn.prepareStatement(sqlWb)) {
+                ps.setInt(1, userID);
+                psE.setInt(1, userID);
+                psW.setInt(1, userID);
+                try (ResultSet rs = ps.executeQuery();
+                    ResultSet rsE = psE.executeQuery();
+                    ResultSet rsW = psW.executeQuery()) {
                     while (rs.next()) {
                         String meterType = rs.getString("meter_type");
                         double totalUsage = rs.getDouble("total_usage");
@@ -129,6 +150,14 @@ public class Doors extends javax.swing.JFrame {
                         } else if ("water".equals(meterType)) {
                             lblWusage.setText(totalUsage + " m³");
                         }
+                    }
+                    
+                    while (rsE.next()) { 
+                        lblEBill.setText("PHP " + rsE.getString("totalElectricityBill"));
+                    }
+                    
+                    while (rsW.next()) {
+                        lblWBill.setText("PHP " + rsW.getString("totalWaterBill"));
                     }
                 }
             }
@@ -164,11 +193,11 @@ public class Doors extends javax.swing.JFrame {
         jScrollPane2 = new javax.swing.JScrollPane();
         tbResidents = new javax.swing.JTable();
         cardPanel9 = new javax.swing.JPanel();
-        jLabel19 = new javax.swing.JLabel();
+        lblEBill = new javax.swing.JLabel();
         lblEUsage = new javax.swing.JLabel();
         jLabel20 = new javax.swing.JLabel();
         cardPanel3 = new javax.swing.JPanel();
-        jLabel7 = new javax.swing.JLabel();
+        lblWBill = new javax.swing.JLabel();
         lblWusage = new javax.swing.JLabel();
         jLabel8 = new javax.swing.JLabel();
         btnReading = new javax.swing.JButton();
@@ -302,7 +331,7 @@ public class Doors extends javax.swing.JFrame {
                 {null, null, null}
             },
             new String [] {
-                "ID", "Door No.", "Capacity"
+                "ID", "Door No.", "Available"
             }
         ));
         tbDoors.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -338,9 +367,9 @@ public class Doors extends javax.swing.JFrame {
         cardPanel9.setBackground(new java.awt.Color(255, 255, 255));
         cardPanel9.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(204, 204, 204), 1, true));
 
-        jLabel19.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        jLabel19.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel19.setText("Electric Usage");
+        lblEBill.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        lblEBill.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        lblEBill.setText("Electric Usage");
 
         lblEUsage.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
         lblEUsage.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -359,7 +388,7 @@ public class Doors extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(cardPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(lblEUsage, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel19, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(lblEBill, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(12, 12, 12))
         );
         cardPanel9Layout.setVerticalGroup(
@@ -367,22 +396,22 @@ public class Doors extends javax.swing.JFrame {
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, cardPanel9Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(cardPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(jLabel20, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jLabel20, javax.swing.GroupLayout.DEFAULT_SIZE, 127, Short.MAX_VALUE)
                     .addGroup(cardPanel9Layout.createSequentialGroup()
                         .addGap(33, 33, 33)
                         .addComponent(lblEUsage)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jLabel19, javax.swing.GroupLayout.PREFERRED_SIZE, 42, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(0, 27, Short.MAX_VALUE)))
+                        .addComponent(lblEBill, javax.swing.GroupLayout.PREFERRED_SIZE, 42, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
 
         cardPanel3.setBackground(new java.awt.Color(255, 255, 255));
         cardPanel3.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(204, 204, 204), 1, true));
 
-        jLabel7.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
-        jLabel7.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel7.setText("Water Usage");
+        lblWBill.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        lblWBill.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        lblWBill.setText("Water Usage");
 
         lblWusage.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
         lblWusage.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -401,7 +430,7 @@ public class Doors extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(cardPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(lblWusage, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel7, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(lblWBill, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         cardPanel3Layout.setVerticalGroup(
@@ -414,8 +443,8 @@ public class Doors extends javax.swing.JFrame {
                         .addGap(31, 31, 31)
                         .addComponent(lblWusage)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jLabel7, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(0, 13, Short.MAX_VALUE)))
+                        .addComponent(lblWBill, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 16, Short.MAX_VALUE)))
                 .addContainerGap())
         );
 
@@ -483,25 +512,31 @@ public class Doors extends javax.swing.JFrame {
                         .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 200, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(6, 6, 6)
                         .addComponent(cardPanel9, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addGap(6, 6, 6)
-                        .addComponent(cardPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(cardPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addContainerGap())
                     .addGroup(deetPanelLayout.createSequentialGroup()
                         .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 445, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(deetPanelLayout.createSequentialGroup()
-                                .addGap(1, 1, 1)
-                                .addComponent(lbl, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(deetPanelLayout.createSequentialGroup()
-                                .addGap(4, 4, 4)
-                                .addComponent(txtEusage, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(deetPanelLayout.createSequentialGroup()
-                                .addGap(1, 1, 1)
-                                .addComponent(lblw, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(deetPanelLayout.createSequentialGroup()
-                                .addGap(4, 4, 4)
-                                .addComponent(txtWusage, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addComponent(btnReading, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                                .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addGroup(deetPanelLayout.createSequentialGroup()
+                                        .addGap(7, 7, 7)
+                                        .addComponent(lbl, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                    .addGroup(deetPanelLayout.createSequentialGroup()
+                                        .addGap(10, 10, 10)
+                                        .addComponent(txtEusage, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                    .addGroup(deetPanelLayout.createSequentialGroup()
+                                        .addGap(7, 7, 7)
+                                        .addComponent(lblw, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                    .addGroup(deetPanelLayout.createSequentialGroup()
+                                        .addGap(10, 10, 10)
+                                        .addComponent(txtWusage, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                                .addGap(2, 2, 2))
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, deetPanelLayout.createSequentialGroup()
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(btnReading, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addContainerGap())))))
         );
 
         javax.swing.GroupLayout contentPanelLayout = new javax.swing.GroupLayout(contentPanel);
@@ -574,7 +609,7 @@ public class Doors extends javax.swing.JFrame {
     private void btnReadingActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnReadingActionPerformed
         int selectedRow = tbResidents.getSelectedRow();
         if (selectedRow != -1) {
-            int residentId = (int) tbResidents.getValueAt(selectedRow, 0);
+            int userID = (int) tbResidents.getValueAt(selectedRow, 0);
 
             // Get the current values from the text fields
             double electricUsage = Double.parseDouble(txtEusage.getText());
@@ -589,39 +624,35 @@ public class Doors extends javax.swing.JFrame {
 
             // Add or update the new readings in the meters table
             try (Connection conn = DBConnection.Connect()) {
-                String checkSql = "SELECT COUNT(*) FROM meters WHERE resident_id = ? AND reading_date = CURDATE()";
+                String checkSql = "SELECT COUNT(*) FROM meters WHERE user_id = ? AND reading_date = CURDATE()";
                 try (PreparedStatement psCheck = conn.prepareStatement(checkSql)) {
-                    psCheck.setInt(1, residentId);
+                    psCheck.setInt(1, userID);
                     ResultSet rsCheck = psCheck.executeQuery();
                     rsCheck.next();
                     int count = rsCheck.getInt(1);
 
                     if (count > 0) {
-                        // Update existing readings
-                        String updateSql = "UPDATE meters SET meter_usage = meter_usage + ? WHERE resident_id = ? AND meter_type = 'electric' AND reading_date = CURDATE()";
+                        String updateSql = "UPDATE meters SET meter_usage = meter_usage + ? WHERE user_id = ? AND meter_type = 'electric' AND reading_date = CURDATE()";
                         try (PreparedStatement psUpdate = conn.prepareStatement(updateSql)) {
                             psUpdate.setDouble(1, electricUsage);
-                            psUpdate.setInt(2, residentId);
+                            psUpdate.setInt(2, userID);
                             psUpdate.executeUpdate();
                         }
 
-                        updateSql = "UPDATE meters SET meter_usage = meter_usage + ? WHERE resident_id = ? AND meter_type = 'water' AND reading_date = CURDATE()";
+                        updateSql = "UPDATE meters SET meter_usage = meter_usage + ? WHERE user_id = ? AND meter_type = 'water' AND reading_date = CURDATE()";
                         try (PreparedStatement psUpdate = conn.prepareStatement(updateSql)) {
                             psUpdate.setDouble(1, waterUsage);
-                            psUpdate.setInt(2, residentId);
+                            psUpdate.setInt(2, userID);
                             psUpdate.executeUpdate();
                         }
                     } else {
-                        // Insert new readings
-                        String insertSql = "INSERT INTO meters (resident_id, meter_type, meter_usage, reading_date) VALUES (?, ?, ?, CURDATE())";
+                        String insertSql = "INSERT INTO meters (user_id, meter_type, meter_usage, reading_date) VALUES (?, ?, ?, CURDATE())";
                         try (PreparedStatement psInsert = conn.prepareStatement(insertSql)) {
-                            // Insert electric usage
-                            psInsert.setInt(1, residentId);
+                            psInsert.setInt(1, userID);
                             psInsert.setString(2, "electric");
                             psInsert.setDouble(3, electricUsage);
                             psInsert.executeUpdate();
 
-                            // Insert water usage
                             psInsert.setString(2, "water");
                             psInsert.setDouble(3, waterUsage);
                             psInsert.executeUpdate();
@@ -629,21 +660,22 @@ public class Doors extends javax.swing.JFrame {
                     }
                 }
 
-                // Insert or update billing information
-                String billingSql = "INSERT INTO billings (resident_id, rent, water_usage, electric_usage, due_date, status) "
-                        + "VALUES (?, 2000, ?, ?, CURDATE() + INTERVAL 30 DAY, 'unpaid') "
-                        + "ON DUPLICATE KEY UPDATE water_usage = water_usage + ?, electric_usage = electric_usage + ?";
+                
+                String billingSql = "INSERT INTO billings (user_id, rent, meter_type, meter_bill, due_date, status) "
+                        + "VALUES (?, 2000, ?, ?, CURDATE() + INTERVAL 30 DAY, 'unpaid') ";
                 try (PreparedStatement psBilling = conn.prepareStatement(billingSql)) {
-                    psBilling.setInt(1, residentId);
-                    psBilling.setDouble(2, waterCost);
+                    psBilling.setInt(1, userID);
+                    psBilling.setString(2, "electric");
                     psBilling.setDouble(3, electricCost);
-                    psBilling.setDouble(4, waterCost);
-                    psBilling.setDouble(5, electricCost);
+                    psBilling.executeUpdate();
+                    
+                    psBilling.setString(2, "water");
+                    psBilling.setDouble(3, waterCost);
                     psBilling.executeUpdate();
                 }
 
                 JOptionPane.showMessageDialog(this, "Readings and billing added successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
-                loadUsage(residentId);
+                loadUsage(userID);
             } catch (SQLException e) {
                 showErrorMessage("Database error: " + e.getMessage());
             }
@@ -663,8 +695,8 @@ public class Doors extends javax.swing.JFrame {
     private void tbResidentsMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tbResidentsMouseClicked
         int selectedRow = tbResidents.getSelectedRow();
         if (selectedRow != -1) {
-            int residentId = (int) tbResidents.getValueAt(selectedRow, 0);
-            loadUsage(residentId);
+            int userID = (int) tbResidents.getValueAt(selectedRow, 0);
+            loadUsage(userID);
         }
     }//GEN-LAST:event_tbResidentsMouseClicked
 
@@ -724,21 +756,21 @@ public class Doors extends javax.swing.JFrame {
     private javax.swing.JPanel contentPanel;
     private javax.swing.JPanel deetPanel;
     private javax.swing.JPanel heroPanel;
-    private javax.swing.JLabel jLabel19;
     private javax.swing.JLabel jLabel20;
-    private javax.swing.JLabel jLabel7;
     private javax.swing.JLabel jLabel8;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JLabel lbl;
     private javax.swing.JLabel lblAccounts;
     private javax.swing.JLabel lblBG;
+    private javax.swing.JLabel lblEBill;
     private javax.swing.JLabel lblEUsage;
     private javax.swing.JLabel lblHome;
     private javax.swing.JLabel lblHome2;
     private javax.swing.JLabel lblLogout;
     private javax.swing.JLabel lblReport;
     private javax.swing.JLabel lblTitle;
+    private javax.swing.JLabel lblWBill;
     private javax.swing.JLabel lblWusage;
     private javax.swing.JLabel lblw;
     private javax.swing.JPanel mainPanel;

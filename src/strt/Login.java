@@ -5,6 +5,7 @@ import obj.User;
 import obj.UserSession;
 import dis.Admin.Admin_DB;
 import dis.Resident.Resident_DB;
+import dis.SuperAdmin.SuperAdmin_DB;
 import java.awt.event.KeyEvent;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -56,23 +57,30 @@ public class Login extends javax.swing.JFrame {
         mainPanel.setBackground(new java.awt.Color(249, 249, 249));
 
         lblTitle.setFont(new java.awt.Font("Poppins", 1, 36)); // NOI18N
+        lblTitle.setForeground(new java.awt.Color(0, 0, 0));
         lblTitle.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         lblTitle.setText("Log in");
 
         lblUser.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        lblUser.setForeground(new java.awt.Color(0, 0, 0));
         lblUser.setText("Username/E-mail:");
 
         lblPass.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        lblPass.setForeground(new java.awt.Color(0, 0, 0));
         lblPass.setText("Password:");
 
+        txtUser.setBackground(new java.awt.Color(255, 255, 255));
         txtUser.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        txtUser.setForeground(new java.awt.Color(0, 0, 0));
         txtUser.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 txtUserActionPerformed(evt);
             }
         });
 
+        txtPass.setBackground(new java.awt.Color(255, 255, 255));
         txtPass.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        txtPass.setForeground(new java.awt.Color(0, 0, 0));
         txtPass.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 txtPassActionPerformed(evt);
@@ -86,6 +94,7 @@ public class Login extends javax.swing.JFrame {
 
         btnLogin.setBackground(new java.awt.Color(154, 164, 255));
         btnLogin.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        btnLogin.setForeground(new java.awt.Color(0, 0, 0));
         btnLogin.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/log-in-regular-24.png"))); // NOI18N
         btnLogin.setText(" Log in");
         btnLogin.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -97,6 +106,7 @@ public class Login extends javax.swing.JFrame {
 
         btnRegister.setBackground(new java.awt.Color(154, 164, 255));
         btnRegister.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        btnRegister.setForeground(new java.awt.Color(0, 0, 0));
         btnRegister.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/user-plus-regular-24.png"))); // NOI18N
         btnRegister.setText(" Register");
         btnRegister.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -171,13 +181,15 @@ public class Login extends javax.swing.JFrame {
         }
 
         try (Connection conn = DBConnection.Connect()) {
-            String sql = "SELECT u.user_id, p.first_name, p.last_name, u.password FROM profiles p JOIN users u ON p.user_id = u.user_id "
-                    + "WHERE u.username = ? OR email = ?";
+            String sql = "SELECT u.user_id, p.first_name, p.last_name, u.password, u.role "
+                    + "FROM profiles p "
+                    + "JOIN users u ON p.user_id = u.user_id "
+                    + "WHERE u.username = ? OR u.email = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                 pstmt.setString(1, user);
                 pstmt.setString(2, user);
                 ResultSet rs = pstmt.executeQuery();
-
+                
                 if (rs.next()) {
                     String userId = rs.getString("user_id");
                     loggedInUserID = userId;
@@ -189,43 +201,70 @@ public class Login extends javax.swing.JFrame {
                     User loggedInUser = new User(userId, user, storedPassword);
                     UserSession.setCurrentUser(loggedInUser);
                     if (storedPassword.equals(password)) {
-                        sql = "SELECT * FROM admins WHERE user_id = ?";
-                        try (PreparedStatement adminStmt = conn.prepareStatement(sql)) {
-                            adminStmt.setString(1, userId);
-                            ResultSet adminRs = adminStmt.executeQuery();
+                        sql = "SELECT * FROM users WHERE user_id = ?";
+                        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                            ps.setString(1, userId);
+                            ResultSet rsR = ps.executeQuery();
 
-                            if (adminRs.next()) {
-                                Admin_DB adminDB = new Admin_DB();
-                                adminDB.setVisible(true);
-                                resetFields();
-                                this.dispose();
-                                JOptionPane.showMessageDialog(this, "Welcome, " + fullName + "!", "Login Successful",
-                                        JOptionPane.INFORMATION_MESSAGE);
-                            } else {
-                                sql = "SELECT d.door_number "
-                                    + "FROM profiles p "
-                                    + "LEFT JOIN users u ON u.user_id = p.user_id "
-                                    + "LEFT JOIN doors d ON d.door_id = p.door_id "
-                                    + "WHERE p.user_id = ?";
-                                try (PreparedStatement residentStmt = conn.prepareStatement(sql)) {
-                                    residentStmt.setString(1, userId);
-                                    ResultSet residentRs = residentStmt.executeQuery();
+                            if (rsR.next()) {
+                                String role = rsR.getString("role");
+                                
+                                if ("admins".equals(role)) {
+                                    String sqlB = "SELECT u.user_id, b.branch_id "
+                                            + "FROM users u "
+                                            + "LEFT JOIN branches b ON b.user_id = u.user_id "
+                                            + "WHERE u.user_id = ?";
+                                    try (PreparedStatement psB = conn.prepareStatement(sqlB)) {
+                                        psB.setString(1, userId);
+                                        ResultSet rsB = psB.executeQuery();
 
-                                    if (residentRs.next()) {
-                                        String doorNo = residentRs.getString("door_number");
-                                        if (doorNo == null) {
-                                            JOptionPane.showMessageDialog(null, "This user does not have a door assigned yet.", "Error", JOptionPane.ERROR_MESSAGE);
-                                        } else {
-                                            Resident_DB residentDB = new Resident_DB();
-                                            residentDB.setVisible(true);
-                                            resetFields();
-                                            this.dispose();
-                                            JOptionPane.showMessageDialog(this, "Welcome, " + fullName + "!",
-                                                    "Login Successful", JOptionPane.INFORMATION_MESSAGE);
+                                        if (rsB.next()) {
+                                            String branch = rsB.getString("branch_id");
+                                            if (branch == null) {
+                                                JOptionPane.showMessageDialog(null, "This user does not have a branch assigned yet.", "Error", JOptionPane.ERROR_MESSAGE);
+                                            } else {
+                                                Admin_DB adminDB = new Admin_DB();
+                                                adminDB.setVisible(true);
+                                                resetFields();
+                                                this.dispose();
+                                                JOptionPane.showMessageDialog(this, "Welcome, " + fullName + "!", "Login Successful",
+                                                        JOptionPane.INFORMATION_MESSAGE);
+                                            }
                                         }
-                                    } else {
-                                        showErrorMessage("User not recognized.");
                                     }
+                                } else if ("residents".equals(role)) {
+                                    sql = "SELECT d.door_number "
+                                            + "FROM profiles p "
+                                            + "LEFT JOIN users u ON u.user_id = p.user_id "
+                                            + "LEFT JOIN doors d ON d.door_id = p.door_id "
+                                            + "WHERE p.user_id = ?";
+                                    try (PreparedStatement rStmt = conn.prepareStatement(sql)) {
+                                        rStmt.setString(1, userId);
+                                        ResultSet rsRes = rStmt.executeQuery();
+
+                                        if (rsRes.next()) {
+                                            String doorNo = rsRes.getString("door_number");
+                                            if (doorNo == null) {
+                                                JOptionPane.showMessageDialog(null, "This user does not have a door assigned yet.", "Error", JOptionPane.ERROR_MESSAGE);
+                                            } else {
+                                                Resident_DB residentDB = new Resident_DB();
+                                                residentDB.setVisible(true);
+                                                resetFields();
+                                                this.dispose();
+                                                JOptionPane.showMessageDialog(this, "Welcome, " + fullName + "!",
+                                                        "Login Successful", JOptionPane.INFORMATION_MESSAGE);
+                                            }
+                                        }
+                                    }
+                                } else if ("super".equals(role)) {
+                                    SuperAdmin_DB superAdminDB = new SuperAdmin_DB();
+                                    superAdminDB.setVisible(true);
+                                    resetFields();
+                                    this.dispose();
+                                    JOptionPane.showMessageDialog(this, "Welcome, " + fullName + "!", "Login Successful",
+                                            JOptionPane.INFORMATION_MESSAGE);
+                                } else {
+                                    showErrorMessage("User not recognized.");
                                 }
                             }
                         }
@@ -295,7 +334,7 @@ public class Login extends javax.swing.JFrame {
                 new Login().setVisible(true);
             }
         });
-    }
+    }   
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnLogin;
