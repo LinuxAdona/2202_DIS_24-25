@@ -209,7 +209,7 @@
                   <Group type="102" alignment="0" attributes="0">
                       <Component id="heroPanel" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
-                      <Component id="deetPanel" min="-2" max="-2" attributes="0"/>
+                      <Component id="deetPanel" max="32767" attributes="0"/>
                   </Group>
               </Group>
             </DimensionLayout>
@@ -317,7 +317,7 @@
                               <Component id="cardPanel4" max="32767" attributes="0"/>
                               <Component id="cardPanel12" max="32767" attributes="0"/>
                           </Group>
-                          <EmptySpace max="32767" attributes="0"/>
+                          <EmptySpace pref="20" max="32767" attributes="0"/>
                       </Group>
                   </Group>
                 </DimensionLayout>

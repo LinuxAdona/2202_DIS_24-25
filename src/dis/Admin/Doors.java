@@ -103,7 +103,7 @@ public class Doors extends javax.swing.JFrame {
                         String usageSql = "SELECT meter_usage, meter_type "
                                 + "FROM meters "
                                 + "WHERE door_id = ? "
-                                + "GROUP BY meter_type";
+                                + "ORDER BY meter_type";
                         try (PreparedStatement psUsage = conn.prepareStatement(usageSql)) {
                             psUsage.setInt(1, doorId);
                             try (ResultSet rsUsage = psUsage.executeQuery()) {
@@ -124,12 +124,13 @@ public class Doors extends javax.swing.JFrame {
 
             // Calculate total bills for the door
             String billElectricSql = "SELECT IFNULL(SUM(meter_bill), 0) AS totalElectricityBill "
-                    + "FROM billings WHERE meter_type = 'electric'";
+                    + "FROM billings WHERE meter_type = 'electric' AND door_id = ?";
             String billWaterSql = "SELECT IFNULL(SUM(meter_bill), 0) AS totalWaterBill "
-                    + "FROM billings WHERE meter_type = 'water'";
+                    + "FROM billings WHERE meter_type = 'water' AND door_id = ?";
 
             // Calculate total electric bill
             try (PreparedStatement psEBill = conn.prepareStatement(billElectricSql)) {
+                psEBill.setInt(1, doorId);
                 try (ResultSet rsEBill = psEBill.executeQuery()) {
                     if (rsEBill.next()) {
                         totalElectricBill = rsEBill.getDouble("totalElectricityBill");
@@ -139,6 +140,7 @@ public class Doors extends javax.swing.JFrame {
 
             // Calculate total water bill
             try (PreparedStatement psWBill = conn.prepareStatement(billWaterSql)) {
+                psWBill.setInt(1, doorId);
                 try (ResultSet rsWBill = psWBill.executeQuery()) {
                     if (rsWBill.next()) {
                         totalWaterBill = rsWBill.getDouble("totalWaterBill");
@@ -193,7 +195,7 @@ public class Doors extends javax.swing.JFrame {
             String usageSql = "SELECT meter_usage, meter_type "
                     + "FROM meters "
                     + "WHERE door_id = ? "
-                    + "GROUP BY meter_type";
+                    + "ORDER BY meter_type";
             try (PreparedStatement psUsage = conn.prepareStatement(usageSql)) {
                 psUsage.setInt(1, doorID);
                 try (ResultSet rsUsage = psUsage.executeQuery()) {
@@ -675,6 +677,7 @@ public class Doors extends javax.swing.JFrame {
 
     private void btnReadingActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnReadingActionPerformed
         int selectedDoorRow = tbDoors.getSelectedRow();
+        int userID = Integer.parseInt(getLoggedInUserID());
         if (selectedDoorRow != -1) {
             int doorID = (int) tbDoors.getValueAt(selectedDoorRow, 0);
 
@@ -705,8 +708,8 @@ public class Doors extends javax.swing.JFrame {
                 // Calculate costs
                 double electricRate = 11.50; // PHP per kWh
                 double waterRate = 2.00; // PHP per cubic meter
-                totalElectricCost = electricUsage * electricRate;
-                totalWaterCost = waterUsage * waterRate;
+                totalElectricCost = (electricUsage * electricRate) / residentCount;
+                totalWaterCost = (waterUsage * waterRate) / residentCount;
 
                 // Add or update the new readings in the meters table
                 String insertSql = "INSERT INTO meters (door_id, meter_type, meter_usage, reading_date) VALUES (?, ?, ?, CURDATE())";
@@ -716,29 +719,34 @@ public class Doors extends javax.swing.JFrame {
                     psInsert.setDouble(3, electricUsage);
                     psInsert.executeUpdate();
 
+                    psInsert.setInt(1, doorID);
                     psInsert.setString(2, "water");
                     psInsert.setDouble(3, waterUsage);
                     psInsert.executeUpdate();
                 }
 
                 // Distribute billing costs among residents
-                String billingSql = "INSERT INTO billings (user_id, rent, meter_type, meter_bill, due_date, status) "
-                        + "SELECT user_id, 2000, ?, ?, CURDATE() + INTERVAL 30 DAY, 'unpaid' "
+                String billingSql = "INSERT INTO billings (door_id, user_id, rent, meter_type, meter_bill, due_date, status) "
+                        + "SELECT ?, user_id, ?, ?, ?, CURDATE() + INTERVAL 30 DAY, 'unpaid' "
                         + "FROM profiles WHERE door_id = ?";
                 try (PreparedStatement psBilling = conn.prepareStatement(billingSql)) {
-                    psBilling.setString(1, "electric");
-                    psBilling.setDouble(2, totalElectricCost / residentCount);
-                    psBilling.setInt(3, doorID);
+                    psBilling.setInt(1, doorID);
+                    psBilling.setDouble(2, (2000 / residentCount) / 2);
+                    psBilling.setString(3, "electric");
+                    psBilling.setDouble(4, totalElectricCost);
+                    psBilling.setInt(5, doorID);
                     psBilling.executeUpdate();
 
-                    psBilling.setString(1, "water");
-                    psBilling.setDouble(2, totalWaterCost / residentCount);
-                    psBilling.setInt(3, doorID);
+                    psBilling.setInt(1, doorID);
+                    psBilling.setDouble(2, (2000 / residentCount) / 2);
+                    psBilling.setString(3, "water");
+                    psBilling.setDouble(4, totalWaterCost);
+                    psBilling.setInt(5, doorID);
                     psBilling.executeUpdate();
                 }
 
                 JOptionPane.showMessageDialog(this, "Readings and billing added successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
-                loadUsage(doorID); // Optionally load usage for the door
+                loadUsage(userID); // Optionally load usage for the door
             } catch (SQLException e) {
                 showErrorMessage("Database error: " + e.getMessage());
             }

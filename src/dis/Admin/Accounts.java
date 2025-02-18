@@ -52,68 +52,59 @@ public class Accounts extends javax.swing.JFrame {
         }
 
         try (Connection conn = DBConnection.Connect()) {
-            String userSql = "SELECT u.user_id "
-                           + "FROM users u "
-                           + "INNER JOIN profiles p ON u.user_id = p.user_id "
-                           + "INNER JOIN doors d ON p.door_id = d.door_id "
-                           + "INNER JOIN branches b ON d.branch_id = b.branch_id "
-                           + "WHERE u.role = 'residents' AND d.branch_id = (SELECT d.branch_id FROM users u "
-                           + "INNER JOIN profiles p ON u.user_id = p.user_id "
-                           + "INNER JOIN doors d ON p.door_id = d.door_id "
-                           + "WHERE u.user_id = ?) "
-                           + "ORDER BY u.user_id ASC ";
-            String profileSql = "SELECT * FROM profiles WHERE user_id = ?";
-            String doorSql = "SELECT * FROM doors";
             String userID = getLoggedInUserID();
 
+            // Get the branch ID for the logged-in user
+            String branchIdSql = "SELECT branch_id FROM branches WHERE user_id = ?";
+            String branchId = null;
+            try (PreparedStatement psBranch = conn.prepareStatement(branchIdSql)) {
+                psBranch.setString(1, userID);
+                ResultSet rsBranch = psBranch.executeQuery();
+                if (rsBranch.next()) {
+                    branchId = rsBranch.getString("branch_id");
+                }
+            }
+
+            if (branchId == null) {
+                showErrorMessage("No branch found for the logged-in user.");
+                return;
+            }
+
+            // Load accounts for the specific branch or accounts without a door assigned
+            String userSql = "SELECT u.user_id, p.first_name, p.last_name, p.contact_number, p.sex, d.door_number "
+                    + "FROM users u "
+                    + "INNER JOIN profiles p ON u.user_id = p.user_id "
+                    + "LEFT JOIN doors d ON p.door_id = d.door_id "
+                    + "WHERE (u.role = 'residents' AND (d.door_id IS NULL OR d.branch_id = ?)) "
+                    + "ORDER BY u.user_id ASC";
+
             try (PreparedStatement psUser = conn.prepareStatement(userSql)) {
-                psUser.setString(1, userID);
+                psUser.setString(1, branchId);
                 ResultSet rsUser = psUser.executeQuery();
-                
+
                 while (rsUser.next()) {
                     String userId = rsUser.getString("user_id");
+                    String name = rsUser.getString("first_name") + " " + rsUser.getString("last_name");
+                    String contact = rsUser.getString("contact_number");
+                    String sex = rsUser.getString("sex");
+                    String doorNumber = rsUser.getString("door_number") != null ? rsUser.getString("door_number") : "N/A";
 
-                    try (PreparedStatement psProfile = conn.prepareStatement(profileSql)) {
-                        psProfile.setString(1, userId);
-                        ResultSet rsProfile = psProfile.executeQuery();
-
-                        if (rsProfile.next()) {
-                            String name = rsProfile.getString("first_name") + " " + rsProfile.getString("last_name");
-                            String contact = rsProfile.getString("contact_number");
-                            String sex = rsProfile.getString("sex");
-                            Date dobDate = rsProfile.getDate("date_of_birth");
-                            SimpleDateFormat newFormat = new SimpleDateFormat("MM/dd/yyyy");
-                            String dob = newFormat.format(dobDate);
-
-                            String doorSqlQuery = doorSql + " WHERE door_id = ?";
-                            try (PreparedStatement psDoor = conn.prepareStatement(doorSqlQuery)) {
-                                psDoor.setString(1, rsProfile.getString("door_id"));
-                                ResultSet rsDoor = psDoor.executeQuery();
-
-                                String doorNumber = "";
-                                if (rsDoor.next()) {
-                                    doorNumber = rsDoor.getString("door_number");
-                                }
-
-                                model.addRow(new Object[]{userId, name, contact, sex, doorNumber});
-                            }
-                        }
-                    }
+                    model.addRow(new Object[]{userId, name, contact, sex, doorNumber});
                 }
             }
 
             if (model.getRowCount() < 6) {
                 tbAccounts.getColumnModel().getColumn(0).setPreferredWidth(40);
-                tbAccounts.getColumnModel().getColumn(1).setPreferredWidth(397);
+                tbAccounts.getColumnModel().getColumn(1).setPreferredWidth(359);
                 tbAccounts.getColumnModel().getColumn(2).setPreferredWidth(120);
                 tbAccounts.getColumnModel().getColumn(3).setPreferredWidth(80);
-                tbAccounts.getColumnModel().getColumn(4).setPreferredWidth(42);
+                tbAccounts.getColumnModel().getColumn(4).setPreferredWidth(80);
             } else {
                 tbAccounts.getColumnModel().getColumn(0).setPreferredWidth(40);
-                tbAccounts.getColumnModel().getColumn(1).setPreferredWidth(380);
+                tbAccounts.getColumnModel().getColumn(1).setPreferredWidth(343);
                 tbAccounts.getColumnModel().getColumn(2).setPreferredWidth(120);
                 tbAccounts.getColumnModel().getColumn(3).setPreferredWidth(80);
-                tbAccounts.getColumnModel().getColumn(4).setPreferredWidth(43);
+                tbAccounts.getColumnModel().getColumn(4).setPreferredWidth(80);
             }
         } catch (SQLException e) {
             showErrorMessage("Database error: " + e.getMessage());
@@ -768,42 +759,82 @@ public class Accounts extends javax.swing.JFrame {
             String selectedDoor = (String) cbDoor.getSelectedItem();
 
             try (Connection conn = DBConnection.Connect()) {
-                String countSql = "SELECT d.available FROM doors d "
-                        + "INNER JOIN branches b ON d.branch_id = d.branch_id "
-                        + "WHERE d.branch_id = (SELECT branch_id FROM branches WHERE user_id = ?) AND d.door_id IN (SELECT door_id FROM doors WHERE door_number = ?)";
-                try (PreparedStatement psCount = conn.prepareStatement(countSql)) {
-                    psCount.setString(1, userID);
-                    psCount.setString(2, selectedDoor);
-                    ResultSet rsCount = psCount.executeQuery();
+                conn.setAutoCommit(false); // Start transaction
 
-                    int currentCount = 0;
-                    if (rsCount.next()) {
-                        currentCount = rsCount.getInt("available");
+                // Get the current door_id of the user (if any)
+                String currentDoorSql = "SELECT door_id FROM profiles WHERE user_id = ?";
+                String currentDoorId = null;
+                try (PreparedStatement psCurrentDoor = conn.prepareStatement(currentDoorSql)) {
+                    psCurrentDoor.setString(1, userId);
+                    ResultSet rsCurrentDoor = psCurrentDoor.executeQuery();
+                    if (rsCurrentDoor.next()) {
+                        currentDoorId = rsCurrentDoor.getString("door_id");
                     }
+                }
 
-                    if (currentCount == 0) {
-                        showErrorMessage("Cannot assign door. The door is already at full capacity (4 residents).");
-                        return;
+                // Check availability of the selected door
+                String availabilitySql = "SELECT available FROM doors WHERE door_id = ("
+                        + "SELECT d.door_id FROM doors d "
+                        + "INNER JOIN branches b ON d.branch_id = b.branch_id "
+                        + "WHERE d.door_id = (SELECT DISTINCT p.door_id FROM profiles p "
+                        + "INNER JOIN doors d ON p.door_id = d.door_id "
+                        + "INNER JOIN branches b ON b.branch_id = d.branch_id "
+                        + "WHERE d.door_number = ? AND d.branch_id IN (SELECT branch_id FROM branches WHERE user_id = ?)) "
+                        + "AND b.branch_id IN (SELECT branch_id FROM branches WHERE user_id = ?) "
+                        + "LIMIT 1) ";
+                int availableCount = 0;
+                try (PreparedStatement psAvailability = conn.prepareStatement(availabilitySql)) {
+                    psAvailability.setString(1, selectedDoor);
+                    psAvailability.setString(2, userID);
+                    psAvailability.setString(3, userID);
+                    ResultSet rsAvailability = psAvailability.executeQuery();
+                    if (rsAvailability.next()) {
+                        availableCount = rsAvailability.getInt("available");
                     }
+                }
 
-                    String updateSql = "UPDATE profiles SET door_id = ("
-                            + "SELECT d.door_id FROM doors d "
-                            + "INNER JOIN branches b ON d.branch_id = b.branch_id "
-                            + "WHERE d.door_number = ? AND b.branch_id IN (SELECT branch_id FROM branches WHERE user_id = ?) "
-                            + "LIMIT 1) " // Ensure only one result is returned
-                            + "WHERE user_id = ?;";
-                    try (PreparedStatement psUpdate = conn.prepareStatement(updateSql)) {
-                        psUpdate.setString(1, selectedDoor);
-                        psUpdate.setString(2, userID);
-                        psUpdate.setString(3, userId);
-                        int rowsAffected = psUpdate.executeUpdate();
+                // Check if the selected door is available
+                if (availableCount <= 0) {
+                    showErrorMessage("Cannot assign door. The door is already at full capacity (0 available).");
+                    return;
+                }
 
-                        if (rowsAffected > 0) {
-                            JOptionPane.showMessageDialog(this, "Door assigned successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
-                            loadAccounts();
-                        } else {
-                            showErrorMessage("Failed to assign door. Please try again.");
+                // Update the profiles table to assign the new door
+                String updateSql = "UPDATE profiles SET door_id = ("
+                        + "SELECT d.door_id FROM doors d "
+                        + "INNER JOIN branches b ON d.branch_id = b.branch_id "
+                        + "WHERE d.door_id = (SELECT DISTINCT p.door_id FROM profiles p INNER JOIN doors d ON p.door_id = d.door_id WHERE d.door_number = ?) "
+                        + "AND b.branch_id IN (SELECT branch_id FROM branches WHERE user_id = ?) "
+                        + "LIMIT 1) "
+                        + "WHERE user_id = ?;";
+                try (PreparedStatement psUpdate = conn.prepareStatement(updateSql)) {
+                    psUpdate.setString(1, selectedDoor);
+                    psUpdate.setString(2, userID);
+                    psUpdate.setString(3, userId);
+                    int rowsAffected = psUpdate.executeUpdate();
+
+                    if (rowsAffected > 0) {
+                        // If the user had an old door, increment its available count
+                        if (currentDoorId != null) {
+                            String incrementSql = "UPDATE doors SET available = available + 1 WHERE door_id = (SELECT door_id FROM doors WHERE door_id = ?)";
+                            try (PreparedStatement psIncrement = conn.prepareStatement(incrementSql)) {
+                                psIncrement.setString(1, currentDoorId);
+                                psIncrement.executeUpdate();
+                            }
                         }
+
+                        // Decrement the available count for the new door
+                        String decrementSql = "UPDATE doors SET available = available - 1 WHERE door_number = ?";
+                        try (PreparedStatement psDecrement = conn.prepareStatement(decrementSql)) {
+                            psDecrement.setString(1, selectedDoor);
+                            psDecrement.executeUpdate();
+                        }
+
+                        conn.commit(); // Commit transaction
+                        JOptionPane.showMessageDialog(this, "Door assigned successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        loadAccounts();
+                    } else {
+                        showErrorMessage("Failed to assign door. Please try again.");
                     }
                 }
             } catch (SQLException e) {

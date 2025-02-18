@@ -52,66 +52,43 @@ public class Super_Accounts extends javax.swing.JFrame {
         }
 
         try (Connection conn = DBConnection.Connect()) {
-            String userSql = "SELECT u.user_id "
+            // Load all accounts (both residents and admins) with branch municipality
+            String userSql = "SELECT u.user_id, p.first_name, p.last_name, p.contact_number, p.sex, a.municipality "
                     + "FROM users u "
                     + "INNER JOIN profiles p ON u.user_id = p.user_id "
-                    + "INNER JOIN doors d ON p.door_id = d.door_id "
-                    + "WHERE u.role = 'residents' OR u.role = 'admins' "
-                    + "ORDER BY u.user_id ASC ";
-            String profileSql = "SELECT * FROM profiles WHERE user_id = ?";
-            String branchSql = "SELECT d.branch_id, a.municipality FROM branches b "
-                    + "INNER JOIN doors d ON b.branch_id = d.branch_id "
-                    + "INNER JOIN address a ON b.address_id = a.address_id ";
+                    + "LEFT JOIN doors d ON p.door_id = d.door_id "
+                    + "LEFT JOIN branches b ON d.branch_id = b.branch_id "
+                    + "LEFT JOIN address a ON b.address_id = a.address_id "
+                    + "WHERE u.role IN ('residents', 'admins') "
+                    + "ORDER BY u.user_id ASC";
 
             try (PreparedStatement psUser = conn.prepareStatement(userSql)) {
                 ResultSet rsUser = psUser.executeQuery();
-                if (!rsUser.isBeforeFirst()) { // Check if the ResultSet is empty
-                    System.out.println("No accounts found.");
-                }
+
                 while (rsUser.next()) {
                     String userId = rsUser.getString("user_id");
+                    String name = rsUser.getString("first_name") + " " + rsUser.getString("last_name");
+                    String contact = rsUser.getString("contact_number");
+                    String sex = rsUser.getString("sex");
+                    String municipality = rsUser.getString("municipality") != null ? rsUser.getString("municipality") : "N/A";
 
-                    try (PreparedStatement psProfile = conn.prepareStatement(profileSql)) {
-                        psProfile.setString(1, userId);
-                        ResultSet rsProfile = psProfile.executeQuery();
-
-                        if (rsProfile.next()) {
-                            String name = rsProfile.getString("first_name") + " " + rsProfile.getString("last_name");
-                            String contact = rsProfile.getString("contact_number");
-                            String sex = rsProfile.getString("sex");
-                            Date dobDate = rsProfile.getDate("date_of_birth");
-                            SimpleDateFormat newFormat = new SimpleDateFormat("MM/dd/yyyy");
-                            String dob = newFormat.format(dobDate);
-
-                            String doorSqlQuery = branchSql + " WHERE door_id = ?";
-                            try (PreparedStatement psDoor = conn.prepareStatement(doorSqlQuery)) {
-                                psDoor.setString(1, rsProfile.getString("door_id"));
-                                ResultSet rsDoor = psDoor.executeQuery();
-
-                                String branchName = "";
-                                if (rsDoor.next()) {
-                                    branchName = rsDoor.getString("municipality");
-                                }
-
-                                model.addRow(new Object[]{userId, name, contact, sex, branchName});
-                            }
-                        }
-                    }
+                    model.addRow(new Object[]{userId, name, contact, sex, municipality});
                 }
             }
 
-            if (model.getRowCount() < 4) {
+            // Adjust column widths based on the number of rows
+            if (model.getRowCount() < 6) {
                 tbAccounts.getColumnModel().getColumn(0).setPreferredWidth(40);
                 tbAccounts.getColumnModel().getColumn(1).setPreferredWidth(339);
                 tbAccounts.getColumnModel().getColumn(2).setPreferredWidth(120);
                 tbAccounts.getColumnModel().getColumn(3).setPreferredWidth(80);
-                tbAccounts.getColumnModel().getColumn(4).setPreferredWidth(100);
+                tbAccounts.getColumnModel().getColumn(4).setPreferredWidth(100); // Adjusted for municipality
             } else {
                 tbAccounts.getColumnModel().getColumn(0).setPreferredWidth(40);
                 tbAccounts.getColumnModel().getColumn(1).setPreferredWidth(323);
                 tbAccounts.getColumnModel().getColumn(2).setPreferredWidth(120);
                 tbAccounts.getColumnModel().getColumn(3).setPreferredWidth(80);
-                tbAccounts.getColumnModel().getColumn(4).setPreferredWidth(100);
+                tbAccounts.getColumnModel().getColumn(4).setPreferredWidth(100); // Adjusted for municipality
             }
         } catch (SQLException e) {
             showErrorMessage("Database error: " + e.getMessage());
@@ -132,7 +109,7 @@ public class Super_Accounts extends javax.swing.JFrame {
             SimpleDateFormat dateFormat = new SimpleDateFormat("MMMM dd, yyyy");
 
             String profilesSql = "SELECT * FROM profiles WHERE user_id = ?";
-            String doorSql = "SELECT * FROM doors WHERE door_id = (SELECT door_id FROM profiles WHERE user_id = ?)";
+            String branchSql = "SELECT a.municipality FROM branches b INNER JOIN address a ON b.address_id = a.address_id WHERE branch_id = (SELECT d.branch_id FROM doors d INNER JOIN profiles p ON d.door_id = p.door_id WHERE p.user_id = ?)";
             String addressSql = "SELECT * FROM address WHERE address_id = (SELECT address_id FROM profiles WHERE user_id = ?)";
             String paymentSql = "SELECT * FROM payments WHERE user_id = ?   ";
 
@@ -164,16 +141,16 @@ public class Super_Accounts extends javax.swing.JFrame {
                     lblSex.setText(" " + sex);
                     lblDob.setText(formattedDueDate);
 
-                    String doorNumber = "N/A";
-                    try (PreparedStatement psDoor = conn.prepareStatement(doorSql)) {
-                        psDoor.setString(1, userId);
-                        ResultSet rsDoor = psDoor.executeQuery();
+                    String branch = "N/A";
+                    try (PreparedStatement psBranch = conn.prepareStatement(branchSql)) {
+                        psBranch.setString(1, userId);
+                        ResultSet rsBranch = psBranch.executeQuery();
 
-                        if (rsDoor.next()) {
-                            doorNumber = rsDoor.getString("door_number");
+                        if (rsBranch.next()) {
+                            branch = rsBranch.getString("municipality");
                         }
                     }
-                    lblDoor.setText("Door " + doorNumber);
+                    lblBranch.setText(branch + " Branch");
 
                     try (PreparedStatement psAddress = conn.prepareStatement(addressSql)) {
                         psAddress.setString(1, userId);
@@ -285,7 +262,7 @@ public class Super_Accounts extends javax.swing.JFrame {
         jPanel1 = new javax.swing.JPanel();
         lblPfp = new javax.swing.JLabel();
         lblName = new javax.swing.JLabel();
-        lblDoor = new javax.swing.JLabel();
+        lblBranch = new javax.swing.JLabel();
         jPanel2 = new javax.swing.JPanel();
         jScrollPane2 = new javax.swing.JScrollPane();
         tbPayments = new javax.swing.JTable();
@@ -427,7 +404,7 @@ public class Super_Accounts extends javax.swing.JFrame {
                 {null, null, null, null, null}
             },
             new String [] {
-                "ID", "Name", "Contact", "Sex", "Branch"
+                "ID", "Name", "Contact", "Role", "Branch"
             }
         ));
         tbAccounts.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -456,9 +433,9 @@ public class Super_Accounts extends javax.swing.JFrame {
 
         lblName.setFont(new java.awt.Font("Poppins", 1, 36)); // NOI18N
 
-        lblDoor.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
-        lblDoor.setText("Door Number");
-        lblDoor.setToolTipText("Room Number");
+        lblBranch.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
+        lblBranch.setText("Branch");
+        lblBranch.setToolTipText("Room Number");
 
         jPanel2.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(204, 204, 204), 1, true));
 
@@ -492,12 +469,13 @@ public class Super_Accounts extends javax.swing.JFrame {
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
                 .addContainerGap(106, Short.MAX_VALUE)
                 .addComponent(lblDoor2)
                 .addGap(99, 99, 99))
+            .addGroup(jPanel2Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                .addContainerGap())
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -536,7 +514,7 @@ public class Super_Accounts extends javax.swing.JFrame {
                         .addComponent(lblPfp)
                         .addGap(33, 33, 33)
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(lblDoor)
+                            .addComponent(lblBranch)
                             .addComponent(lblContact)
                             .addComponent(lblDob)
                             .addComponent(lblAddress)
@@ -557,7 +535,7 @@ public class Super_Accounts extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(lblName))
                     .addGroup(jPanel1Layout.createSequentialGroup()
-                        .addComponent(lblDoor, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(lblBranch, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(lblContact, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -566,7 +544,7 @@ public class Super_Accounts extends javax.swing.JFrame {
                         .addComponent(lblDob, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(lblSex, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(74, Short.MAX_VALUE))
+                .addContainerGap(68, Short.MAX_VALUE))
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -628,7 +606,10 @@ public class Super_Accounts extends javax.swing.JFrame {
             .addGroup(deetPanelLayout.createSequentialGroup()
                 .addGap(6, 6, 6)
                 .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, deetPanelLayout.createSequentialGroup()
+                        .addGap(6, 6, 6)
+                        .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addContainerGap())
                     .addGroup(deetPanelLayout.createSequentialGroup()
                         .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(deetPanelLayout.createSequentialGroup()
@@ -677,8 +658,9 @@ public class Super_Accounts extends javax.swing.JFrame {
                         .addComponent(cbBranch, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(8, 8, 8)
                         .addComponent(btnAssign, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addGap(6, 6, 6)
-                .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap())
         );
 
         javax.swing.GroupLayout contentPanelLayout = new javax.swing.GroupLayout(contentPanel);
@@ -743,7 +725,9 @@ public class Super_Accounts extends javax.swing.JFrame {
     }//GEN-LAST:event_lblLogoutMouseClicked
 
     private void lblDMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblDMouseClicked
-  
+        Branches branches = new Branches();
+        branches.setVisible(true);
+        this.dispose();
     }//GEN-LAST:event_lblDMouseClicked
 
     private void lblRMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblRMouseClicked
@@ -779,33 +763,90 @@ public class Super_Accounts extends javax.swing.JFrame {
 
     private void btnAssignActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAssignActionPerformed
         int selectedRow = tbAccounts.getSelectedRow();
-        String userID = getLoggedInUserID();
         if (selectedRow != -1) {
             String userId = tbAccounts.getValueAt(selectedRow, 0).toString();
-            String selectedBranch = (String) cbBranch.getSelectedItem();
-            
-            try (Connection conn = DBConnection.Connect()) {
-                String sql = "SELECT * FROM branches WHERE user_id = ?";
-                try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                    ps.setString(1, userId);
-                    ResultSet rs = ps.executeQuery();
-                    
-                    if (rs.next()) {
-                        JOptionPane.showMessageDialog(this, "This account is already assigned to a branch.", "Selection Error", JOptionPane.WARNING_MESSAGE);
-                    } else {
-                        String addressID = rs.getString("address_id");
-                        String sqlU = "UPDATE branches SET user_id = ? WHERE address_id = (SELECT address_id FROM address WHERE address_id = ?)";
-                        try (PreparedStatement psU = conn.prepareStatement(sqlU)) {
-                            psU.setString(1, userId);
-                            psU.setString(2, addressID);
-                            int rowsAffected = psU.executeUpdate();
+            String selectedBranch = (String) cbBranch.getSelectedItem(); // Assuming this is the branch name or ID
 
-                            if (rowsAffected > 0) {
-                                JOptionPane.showMessageDialog(this, "Branch assigned successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
-                                loadAccounts();
-                            } else {
-                                showErrorMessage("Failed to assign branch. Please try again.");
+            try (Connection conn = DBConnection.Connect()) {
+                // Check the role of the user
+                String roleSql = "SELECT role FROM users WHERE user_id = ?";
+                try (PreparedStatement psRole = conn.prepareStatement(roleSql)) {
+                    psRole.setString(1, userId);
+                    ResultSet rsRole = psRole.executeQuery();
+
+                    if (rsRole.next()) {
+                        String role = rsRole.getString("role");
+                        if (!"admins".equals(role)) {
+                            JOptionPane.showMessageDialog(this, "Only admins can be assigned to a branch.", "Role Error", JOptionPane.WARNING_MESSAGE);
+                            return; // Exit if the user is not an admin
+                        }
+                    }
+
+                    // Check if the selected branch already has a user assigned
+                    String checkBranchSql = "SELECT user_id FROM branches WHERE branch_id = (SELECT branch_id FROM branches WHERE address_id = (SELECT b.address_id FROM branches b INNER JOIN address a ON a.address_id = b.address_id WHERE a.municipality = ?))";
+                    String currentAdminId = null;
+                    try (PreparedStatement psCheck = conn.prepareStatement(checkBranchSql)) {
+                        psCheck.setString(1, selectedBranch); // Use the correct identifier for the branch
+                        ResultSet rsCheck = psCheck.executeQuery();
+
+                        if (rsCheck.next()) {
+                            currentAdminId = rsCheck.getString("user_id");
+                            if (currentAdminId != null) {
+                                // Prompt for confirmation
+                                int confirm = JOptionPane.showConfirmDialog(this,
+                                        "This branch is already assigned to another user. Do you want to swap assignments?",
+                                        "Confirm Assignment Swap",
+                                        JOptionPane.YES_NO_OPTION,
+                                        JOptionPane.WARNING_MESSAGE);
+
+                                if (confirm != JOptionPane.YES_OPTION) {
+                                    return; // User chose not to proceed
+                                }
                             }
+                        }
+                    }
+
+                    // Retrieve the door_id for the selected branch
+                    String doorIdSql = "SELECT p.door_id FROM doors d INNER JOIN profiles p ON p.door_id = d.door_id INNER JOIN users u ON p.user_id = u.user_id WHERE d.branch_id = (SELECT branch_id FROM branches WHERE address_id = (SELECT a.address_id FROM address a INNER JOIN branches b ON a.address_id = b.address_id WHERE a.municipality = ?)) AND u.role = 'admins'";
+                    String newDoorId = null;
+                    try (PreparedStatement psDoorId = conn.prepareStatement(doorIdSql)) {
+                        psDoorId.setString(1, selectedBranch);
+                        ResultSet rsDoorId = psDoorId.executeQuery();
+
+                        if (rsDoorId.next()) {
+                            newDoorId = rsDoorId.getString("door_id");
+                        }
+                    }
+
+                    // Proceed with the assignment
+                    String sqlU = "UPDATE branches SET user_id = ? WHERE branch_id = (SELECT branch_id FROM branches WHERE address_id = (SELECT a.address_id FROM address a INNER JOIN branches b ON a.address_id = b.address_id WHERE a.municipality = ?))";
+                    try (PreparedStatement psU = conn.prepareStatement(sqlU)) {
+                        psU.setString(1, userId);
+                        psU.setString(2, selectedBranch);
+                        int rowsAffected = psU.executeUpdate();
+
+                        // If there was an existing admin, set their door_id to NULL
+                        if (currentAdminId != null) {
+                            String updateCurrentAdminSql = "UPDATE profiles SET door_id = NULL WHERE user_id = ?";
+                            try (PreparedStatement psUpdateCurrentAdmin = conn.prepareStatement(updateCurrentAdminSql)) {
+                                psUpdateCurrentAdmin.setString(1, currentAdminId);
+                                psUpdateCurrentAdmin.executeUpdate();
+                            }
+                        }
+
+                        // Update the new admin's door_id in profiles
+                        String updateNewAdminDoorSql = "UPDATE profiles SET door_id = ? WHERE user_id = ?";
+                        try (PreparedStatement psUpdateNewAdminDoor = conn.prepareStatement(updateNewAdminDoorSql)) {
+                            psUpdateNewAdminDoor.setString(1, newDoorId);
+                            psUpdateNewAdminDoor.setString(2, userId);
+                            psUpdateNewAdminDoor.executeUpdate();
+                        }
+
+                        if (rowsAffected > 0) {
+                            JOptionPane.showMessageDialog(this, "Branch assigned successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                            loadAccounts();
+                        } else {
+                            showErrorMessage("Failed to assign branch. Please try again.");
                         }
                     }
                 }
@@ -1001,10 +1042,10 @@ public class Super_Accounts extends javax.swing.JFrame {
     private javax.swing.JLabel lblA;
     private javax.swing.JLabel lblAddress;
     private javax.swing.JLabel lblBG;
+    private javax.swing.JLabel lblBranch;
     private javax.swing.JLabel lblContact;
     private javax.swing.JLabel lblD;
     private javax.swing.JLabel lblDob;
-    private javax.swing.JLabel lblDoor;
     private javax.swing.JLabel lblDoor1;
     private javax.swing.JLabel lblDoor2;
     private javax.swing.JLabel lblH;

@@ -534,16 +534,12 @@ public class Registration extends javax.swing.JFrame {
         }
 
         String selectedRole = (String) cbRole.getSelectedItem();
-        String selectedBranch = null; // Variable to hold the selected branch
 
         if ("Admin".equals(selectedRole)) {
+            // Prompt for Super Admin password
             JPasswordField passwordField = new JPasswordField();
-            JComboBox<String> cbBranch = new JComboBox<>();
-            loadBranches(cbBranch); // Load branches into the combo box
-
             Object[] message = {
-                "Enter Super User Password:", passwordField,
-                "Select Branch:", cbBranch
+                "Enter Super Admin Password:", passwordField
             };
 
             int option = JOptionPane.showConfirmDialog(this, message, "Admin Registration", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
@@ -551,17 +547,16 @@ public class Registration extends javax.swing.JFrame {
             if (option == JOptionPane.OK_OPTION) {
                 String superUserPassword = new String(passwordField.getPassword());
 
+                // Verify the Super Admin password
                 if (!verifySuperUserPassword(superUserPassword)) {
-                JOptionPane.showMessageDialog(this, "Invalid Super User Password.", "Authentication Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Invalid Super Admin Password.", "Authentication Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
-
-                selectedBranch = (String) cbBranch.getSelectedItem();
             } else {
-                return;
+                return; // User canceled the input
             }
         }
-
+        
         try (Connection conn = DBConnection.Connect()) {
             String checkSql = "SELECT * FROM users WHERE username = ? OR email = ?";
             try (PreparedStatement checkStmt = conn.prepareStatement(checkSql)) {
@@ -583,10 +578,7 @@ public class Registration extends javax.swing.JFrame {
 
             String userSql = "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)";
             String insertSql = "INSERT INTO profiles (user_id, address_id, first_name, last_name, contact_number, sex, date_of_birth, profile_picture) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-            String branchIdSql = "SELECT branch_id FROM branches b "
-                    + "INNER JOIN address a ON b.address_id = a.address_id "
-                    + "WHERE a.municipality = ?";
-            String branchSql = "UPDATE branches SET user_id = ? WHERE branch_id = ?";
+
             try (PreparedStatement userStmt = conn.prepareStatement(userSql, PreparedStatement.RETURN_GENERATED_KEYS)) {
                 userStmt.setString(1, username);
                 userStmt.setString(2, email);
@@ -615,21 +607,6 @@ public class Registration extends javax.swing.JFrame {
 
                         JOptionPane.showMessageDialog(this, "Registration successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
 
-                        if ("admins".equals(selectedRole)) {
-                            try (PreparedStatement psB = conn.prepareStatement(branchSql)) {
-                                try (PreparedStatement psID = conn.prepareStatement(branchIdSql)) {
-                                    String modifiedBranch = selectedBranch.replace("Branch", "").trim();
-                                    psID.setString(1, modifiedBranch);
-                                    ResultSet rsID = psID.executeQuery();
-                                    if (rsID.next()) {
-                                        psB.setString(1, user_id);
-                                        psB.setInt(2, rsID.getInt("branch_id"));
-                                        psB.executeUpdate();
-                                    }
-                                }
-                            }
-                        }
-                        
                         Login loginForm = Login.getInstance();
                         loginForm.setVisible(true);
                         this.setVisible(false);

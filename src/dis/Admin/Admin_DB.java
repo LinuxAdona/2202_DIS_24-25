@@ -66,19 +66,37 @@ public class Admin_DB extends javax.swing.JFrame {
         try (Connection conn = DBConnection.Connect()) {
             String rSql = "SELECT get_occupied_units_by_branch((SELECT branch_id FROM branches WHERE user_id = ?)) AS totalOccupiedUnits";
             String dSql = "SELECT get_available_rooms_by_branch((SELECT branch_id FROM branches WHERE user_id = ?)) AS totalAvailableRooms";
-            String eSql = "SELECT IFNULL(SUM(meter_usage), 0) AS electric_usage FROM meters WHERE meter_type = 'electric'";
-            String wSql = "SELECT IFNULL(SUM(meter_usage), 0) AS water_usage FROM meters WHERE meter_type = 'water'";
+            String sqlEu = "SELECT IFNULL(SUM(m.meter_usage), 0) AS totalElectricityUsage FROM meters m "
+                    + "INNER JOIN doors d ON d.door_id = m.door_id "
+                    + "WHERE m.meter_type = 'electric' AND d.branch_id = (SELECT branch_id FROM branches WHERE user_id = ?)";
+            String sqlEb = "SELECT IFNULL(SUM(b.meter_bill), 0) AS totalElectricityBill FROM billings b "
+                    + "INNER JOIN doors d ON b.door_id = d.door_id "
+                    + "WHERE b.meter_type = 'electric' AND d.branch_id = (SELECT branch_id FROM branches WHERE user_id = ?)";
+            String sqlWb = "SELECT IFNULL(SUM(b.meter_bill), 0) AS totalWaterBill FROM billings b "
+                    + "INNER JOIN doors d ON b.door_id = d.door_id "
+                    + "WHERE b.meter_type = 'water' AND d.branch_id = (SELECT branch_id FROM branches WHERE user_id = ?)";
+            String sqlWu = "SELECT IFNULL(SUM(m.meter_usage), 0) AS totalWaterUsage FROM meters m "
+                    + "INNER JOIN doors d ON d.door_id = m.door_id "
+                    + "WHERE m.meter_type = 'water' AND d.branch_id = (SELECT branch_id FROM branches WHERE user_id = ?)";
             try (PreparedStatement psR = conn.prepareStatement(rSql); 
                     PreparedStatement psD = conn.prepareStatement(dSql); 
-                    PreparedStatement psE = conn.prepareStatement(eSql); 
-                    PreparedStatement psW = conn.prepareStatement(wSql);
-                    ResultSet rsE = psE.executeQuery(); 
-                    ResultSet rsW = psW.executeQuery()) {
+                    PreparedStatement psE = conn.prepareStatement(sqlEu); 
+                    PreparedStatement psEb = conn.prepareStatement(sqlEb); 
+                    PreparedStatement psWb = conn.prepareStatement(sqlWb); 
+                    PreparedStatement psW = conn.prepareStatement(sqlWu)) {
                 String userID = getLoggedInUserID();
                 psR.setString(1, userID);
                 psD.setString(1, userID);
+                psW.setString(1, userID);
+                psE.setString(1, userID);
+                psEb.setString(1, userID);
+                psWb.setString(1, userID);
                 ResultSet rsD = psD.executeQuery(); 
                 ResultSet rsR = psR.executeQuery();
+                ResultSet rsE = psE.executeQuery();
+                ResultSet rsW = psW.executeQuery();
+                ResultSet rsEb = psEb.executeQuery();
+                ResultSet rsWb = psWb.executeQuery();
 
                 if (rsR.next()) {
                     lblResidents.setText(rsR.getString("totalOccupiedUnits"));
@@ -89,11 +107,19 @@ public class Admin_DB extends javax.swing.JFrame {
                 }
 
                 if (rsE.next()) {
-                    lblElectricUsage.setText(rsE.getString("electric_usage") + " kwh");
+                    lblElectricUsage.setText(rsE.getString("totalElectricityUsage") + " kwh");
                 }
 
                 if (rsW.next()) {
-                    lblWaterUsage.setText(rsW.getString("water_usage") + " m³");
+                    lblWaterUsage.setText(rsW.getString("totalWaterUsage") + " m³");
+                }
+
+                if (rsWb.next()) {
+                    lblWaterBill.setText("PHP " + rsWb.getString("totalWaterBill"));
+                }
+
+                if (rsEb.next()) {
+                    lblElecBill.setText("PHP " + rsEb.getString("totalElectricityBill"));
                 }
             }
         } catch (SQLException e) {

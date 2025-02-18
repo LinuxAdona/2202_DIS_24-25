@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 17, 2025 at 09:52 AM
+-- Generation Time: Feb 18, 2025 at 12:23 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -353,6 +353,7 @@ CREATE TABLE `admin_branch` (
 
 CREATE TABLE `billings` (
   `billing_id` int(11) NOT NULL,
+  `door_id` int(11) DEFAULT NULL,
   `user_id` int(11) DEFAULT NULL,
   `rent` decimal(10,2) DEFAULT NULL,
   `meter_type` enum('electric','water') DEFAULT NULL,
@@ -360,6 +361,24 @@ CREATE TABLE `billings` (
   `due_date` date DEFAULT NULL,
   `status` enum('paid','unpaid') DEFAULT 'unpaid'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `billings`
+--
+
+INSERT INTO `billings` (`billing_id`, `door_id`, `user_id`, `rent`, `meter_type`, `meter_bill`, `due_date`, `status`) VALUES
+(1, 61, 5, 2000.00, 'electric', 575.00, '2025-03-20', 'unpaid'),
+(2, 61, 11, 2000.00, 'electric', 575.00, '2025-03-20', 'unpaid'),
+(4, 61, 5, 2000.00, 'water', 1600.00, '2025-03-20', 'unpaid'),
+(5, 61, 11, 2000.00, 'water', 1600.00, '2025-03-20', 'unpaid'),
+(7, 62, 17, 2000.00, 'electric', 345.00, '2025-03-20', 'unpaid'),
+(8, 62, 18, 2000.00, 'electric', 345.00, '2025-03-20', 'unpaid'),
+(9, 62, 19, 2000.00, 'electric', 345.00, '2025-03-20', 'unpaid'),
+(10, 62, 20, 2000.00, 'electric', 345.00, '2025-03-20', 'unpaid'),
+(14, 62, 17, 2000.00, 'water', 1000.00, '2025-03-20', 'unpaid'),
+(15, 62, 18, 2000.00, 'water', 1000.00, '2025-03-20', 'unpaid'),
+(16, 62, 19, 2000.00, 'water', 1000.00, '2025-03-20', 'unpaid'),
+(17, 62, 20, 2000.00, 'water', 1000.00, '2025-03-20', 'unpaid');
 
 -- --------------------------------------------------------
 
@@ -403,10 +422,10 @@ CREATE TABLE `doors` (
 --
 
 INSERT INTO `doors` (`door_id`, `branch_id`, `door_number`, `available`) VALUES
-(1, 1, 101, 3),
-(2, 1, 102, 4),
-(3, 1, 103, 4),
-(4, 1, 104, 4),
+(1, 1, 101, -4),
+(2, 1, 102, 1),
+(3, 1, 103, 1),
+(4, 1, 104, 2),
 (5, 1, 105, 4),
 (6, 1, 106, 4),
 (7, 1, 107, 4),
@@ -418,10 +437,10 @@ INSERT INTO `doors` (`door_id`, `branch_id`, `door_number`, `available`) VALUES
 (13, 1, 113, 4),
 (14, 1, 114, 4),
 (15, 1, 115, 4),
-(16, 2, 101, 4),
-(17, 2, 102, 4),
-(18, 2, 103, 4),
-(19, 2, 104, 4),
+(16, 2, 101, -3),
+(17, 2, 102, 1),
+(18, 2, 103, 1),
+(19, 2, 104, 2),
 (20, 2, 105, 4),
 (21, 2, 106, 4),
 (22, 2, 107, 4),
@@ -433,10 +452,10 @@ INSERT INTO `doors` (`door_id`, `branch_id`, `door_number`, `available`) VALUES
 (28, 2, 113, 4),
 (29, 2, 114, 4),
 (30, 2, 115, 4),
-(31, 3, 101, 4),
-(32, 3, 102, 4),
-(33, 3, 103, 4),
-(34, 3, 104, 4),
+(31, 3, 101, -3),
+(32, 3, 102, 1),
+(33, 3, 103, 1),
+(34, 3, 104, 2),
 (35, 3, 105, 4),
 (36, 3, 106, 4),
 (37, 3, 107, 4),
@@ -448,10 +467,10 @@ INSERT INTO `doors` (`door_id`, `branch_id`, `door_number`, `available`) VALUES
 (43, 3, 113, 4),
 (44, 3, 114, 4),
 (45, 3, 115, 4),
-(46, 4, 101, 4),
-(47, 4, 102, 4),
-(48, 4, 103, 4),
-(49, 4, 104, 4),
+(46, 4, 101, -3),
+(47, 4, 102, 1),
+(48, 4, 103, 1),
+(49, 4, 104, 2),
 (50, 4, 105, 4),
 (51, 4, 106, 4),
 (52, 4, 107, 4),
@@ -463,9 +482,9 @@ INSERT INTO `doors` (`door_id`, `branch_id`, `door_number`, `available`) VALUES
 (58, 4, 113, 4),
 (59, 4, 114, 4),
 (60, 4, 115, 4),
-(61, 5, 101, 2),
+(61, 5, 101, 3),
 (62, 5, 102, 0),
-(63, 5, 103, 4),
+(63, 5, 103, 0),
 (64, 5, 104, 4),
 (65, 5, 105, 4),
 (66, 5, 106, 4),
@@ -492,11 +511,21 @@ INSERT INTO `doors` (`door_id`, `branch_id`, `door_number`, `available`) VALUES
 
 CREATE TABLE `meters` (
   `meter_id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
+  `door_id` int(11) DEFAULT NULL,
   `meter_type` enum('electric','water') DEFAULT NULL,
   `meter_usage` double DEFAULT NULL,
   `reading_date` date DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `meters`
+--
+
+INSERT INTO `meters` (`meter_id`, `door_id`, `meter_type`, `meter_usage`, `reading_date`) VALUES
+(1, 61, 'electric', 100, '2025-02-18'),
+(2, 61, 'water', 1600, '2025-02-18'),
+(3, 62, 'electric', 120, '2025-02-18'),
+(4, 62, 'water', 2000, '2025-02-18');
 
 -- --------------------------------------------------------
 
@@ -555,16 +584,18 @@ INSERT INTO `profiles` (`profile_id`, `user_id`, `door_id`, `address_id`, `profi
 (4, 4, 80, 128, NULL, 'Kristine', 'De Torres', '09987654333', 'Female', '2004-09-03'),
 (5, 5, 61, 3, NULL, 'Mac Millan', 'Abrenica', '09987654444', 'Male', '2004-09-18'),
 (8, 10, 79, 108, NULL, 'Aeron Marc', 'Salanguit', '09987655555', 'Male', '2004-02-20'),
-(9, 11, 61, 4, NULL, 'Dorina', 'Cables', '09987666666', 'Female', '2004-11-17'),
+(9, 11, 63, 4, NULL, 'Dorina', 'Cables', '09987666666', 'Female', '2004-11-17'),
 (10, 12, 76, 32, NULL, 'Jasper', 'Rosales', '09987777777', 'Male', '2004-04-26'),
 (11, 13, 77, 52, NULL, 'Felman', 'Eleponga', '0988888888', 'Male', '2005-08-30'),
-(12, 14, NULL, 31, NULL, 'Khriz Viyel', 'Ellao', '09123456789', 'Male', '2004-09-12'),
-(13, 15, NULL, 67, NULL, 'Andre', 'Cachola', '09123456788', 'Male', '2005-05-13'),
-(14, 16, NULL, 153, NULL, 'Axle', 'Hernando', '09123456777', 'Male', '2004-10-16'),
+(12, 14, 63, 31, NULL, 'Khriz Viyel', 'Ellao', '09123456789', 'Male', '2004-09-12'),
+(13, 15, 63, 67, NULL, 'Andre', 'Cachola', '09123456788', 'Male', '2005-05-13'),
+(14, 16, 63, 153, NULL, 'Axle', 'Hernando', '09123456777', 'Male', '2004-10-16'),
 (15, 17, 62, 32, NULL, 'John Ashley', 'Alday', '09123456543', 'Male', '2004-12-22'),
 (16, 18, 62, 203, NULL, 'Patrick Jay', 'Alday', '09123456666', 'Male', '2005-07-30'),
 (17, 19, 62, 20, NULL, 'Ken', 'Gaa', '09123455555', 'Male', '2004-08-17'),
-(18, 20, 62, 36, NULL, 'Katrina Ashley', 'Mayuga', '09123444444', 'Female', '2004-09-01');
+(18, 20, 62, 36, NULL, 'Katrina Ashley', 'Mayuga', '09123444444', 'Female', '2004-09-01'),
+(19, 21, NULL, 1, NULL, 'Neil', 'Adona', '09123454321', 'Male', '1978-09-04'),
+(20, 22, NULL, 203, NULL, 'Julie Ann', 'Manalo', '09123456543', 'Female', '2002-07-25');
 
 -- --------------------------------------------------------
 
@@ -600,7 +631,9 @@ INSERT INTO `users` (`user_id`, `username`, `email`, `password`, `role`) VALUES
 (17, 'busle', 'johnashleyalday@gmail.com', 'busle123', 'residents'),
 (18, 'patek', 'patrickalday@gmail.com', 'patek123', 'residents'),
 (19, 'bobby', 'kengaa@gmail.com', 'bobby123', 'residents'),
-(20, 'katrina', 'katrinamayuga@gmail.com', 'kat123', 'residents');
+(20, 'katrina', 'katrinamayuga@gmail.com', 'kat123', 'residents'),
+(21, 'neil', 'neadona@gmail.com', 'neil123', 'admins'),
+(22, 'julie', 'julieannmanalo@gmail.com', 'julie123', 'admins');
 
 -- --------------------------------------------------------
 
@@ -651,7 +684,8 @@ ALTER TABLE `address`
 --
 ALTER TABLE `billings`
   ADD PRIMARY KEY (`billing_id`),
-  ADD KEY `FK_USER_BILLINGS` (`user_id`);
+  ADD KEY `FK_USER_BILLINGS` (`user_id`),
+  ADD KEY `FK_DOOR_BILL` (`door_id`);
 
 --
 -- Indexes for table `branches`
@@ -673,7 +707,7 @@ ALTER TABLE `doors`
 --
 ALTER TABLE `meters`
   ADD PRIMARY KEY (`meter_id`),
-  ADD KEY `FK_USER_METERS` (`user_id`);
+  ADD KEY `FK_DOOR_METER` (`door_id`);
 
 --
 -- Indexes for table `notifications`
@@ -718,7 +752,7 @@ ALTER TABLE `address`
 -- AUTO_INCREMENT for table `billings`
 --
 ALTER TABLE `billings`
-  MODIFY `billing_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `billing_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- AUTO_INCREMENT for table `branches`
@@ -736,7 +770,7 @@ ALTER TABLE `doors`
 -- AUTO_INCREMENT for table `meters`
 --
 ALTER TABLE `meters`
-  MODIFY `meter_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `meter_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `notifications`
@@ -754,13 +788,13 @@ ALTER TABLE `payments`
 -- AUTO_INCREMENT for table `profiles`
 --
 ALTER TABLE `profiles`
-  MODIFY `profile_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `profile_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
 --
 -- Constraints for dumped tables
@@ -770,6 +804,7 @@ ALTER TABLE `users`
 -- Constraints for table `billings`
 --
 ALTER TABLE `billings`
+  ADD CONSTRAINT `FK_DOOR_BILL` FOREIGN KEY (`door_id`) REFERENCES `doors` (`door_id`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `FK_USER_BILLINGS` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
@@ -789,7 +824,7 @@ ALTER TABLE `doors`
 -- Constraints for table `meters`
 --
 ALTER TABLE `meters`
-  ADD CONSTRAINT `FK_USER_METERS` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `FK_DOOR_METER` FOREIGN KEY (`door_id`) REFERENCES `doors` (`door_id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `notifications`

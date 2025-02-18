@@ -540,7 +540,7 @@ public class SuperAdmin_DB extends javax.swing.JFrame {
                 .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(cardPanel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(cardPanel12, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(20, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout contentPanelLayout = new javax.swing.GroupLayout(contentPanel);
@@ -555,7 +555,7 @@ public class SuperAdmin_DB extends javax.swing.JFrame {
             .addGroup(contentPanelLayout.createSequentialGroup()
                 .addComponent(heroPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(deetPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addComponent(deetPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout mainPanelLayout = new javax.swing.GroupLayout(mainPanel);
@@ -605,8 +605,8 @@ public class SuperAdmin_DB extends javax.swing.JFrame {
     }//GEN-LAST:event_lblAccountsMouseClicked
 
     private void lblBranchesPageMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblBranchesPageMouseClicked
-        Doors doors = new Doors();
-        doors.setVisible(true);
+        Branches branches = new Branches();
+        branches.setVisible(true);
         this.dispose();
     }//GEN-LAST:event_lblBranchesPageMouseClicked
 

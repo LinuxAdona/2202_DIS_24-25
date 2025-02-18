@@ -275,10 +275,14 @@
               <Layout>
                 <DimensionLayout dim="0">
                   <Group type="103" groupAlignment="0" attributes="0">
-                      <Group type="102" attributes="0">
+                      <Group type="102" alignment="0" attributes="0">
                           <EmptySpace min="6" pref="6" max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="0" attributes="0">
-                              <Component id="jPanel1" max="32767" attributes="0"/>
+                              <Group type="102" alignment="1" attributes="0">
+                                  <EmptySpace min="6" pref="6" max="-2" attributes="0"/>
+                                  <Component id="jPanel1" max="32767" attributes="0"/>
+                                  <EmptySpace max="-2" attributes="0"/>
+                              </Group>
                               <Group type="102" attributes="0">
                                   <Group type="103" groupAlignment="0" attributes="0">
                                       <Group type="102" attributes="0">
@@ -344,8 +348,9 @@
                                   <Component id="btnAssign" min="-2" pref="40" max="-2" attributes="0"/>
                               </Group>
                           </Group>
-                          <EmptySpace min="6" pref="6" max="-2" attributes="0"/>
+                          <EmptySpace max="-2" attributes="0"/>
                           <Component id="jPanel1" max="32767" attributes="0"/>
+                          <EmptySpace max="-2" attributes="0"/>
                       </Group>
                   </Group>
                 </DimensionLayout>
@@ -368,7 +373,7 @@
                             <Column editable="true" title="ID" type="java.lang.Object"/>
                             <Column editable="true" title="Name" type="java.lang.Object"/>
                             <Column editable="true" title="Contact" type="java.lang.Object"/>
-                            <Column editable="true" title="Sex" type="java.lang.Object"/>
+                            <Column editable="true" title="Role" type="java.lang.Object"/>
                             <Column editable="true" title="Branch" type="java.lang.Object"/>
                           </Table>
                         </Property>
@@ -456,7 +461,7 @@
                                       <Component id="lblPfp" min="-2" max="-2" attributes="0"/>
                                       <EmptySpace min="-2" pref="33" max="-2" attributes="0"/>
                                       <Group type="103" groupAlignment="0" attributes="0">
-                                          <Component id="lblDoor" alignment="0" min="-2" max="-2" attributes="0"/>
+                                          <Component id="lblBranch" alignment="0" min="-2" max="-2" attributes="0"/>
                                           <Component id="lblContact" alignment="0" min="-2" max="-2" attributes="0"/>
                                           <Component id="lblDob" alignment="0" min="-2" max="-2" attributes="0"/>
                                           <Component id="lblAddress" alignment="0" min="-2" max="-2" attributes="0"/>
@@ -483,7 +488,7 @@
                                       <Component id="lblName" min="-2" max="-2" attributes="0"/>
                                   </Group>
                                   <Group type="102" alignment="0" attributes="0">
-                                      <Component id="lblDoor" min="-2" pref="31" max="-2" attributes="0"/>
+                                      <Component id="lblBranch" min="-2" pref="31" max="-2" attributes="0"/>
                                       <EmptySpace max="-2" attributes="0"/>
                                       <Component id="lblContact" min="-2" pref="31" max="-2" attributes="0"/>
                                       <EmptySpace max="-2" attributes="0"/>
@@ -494,7 +499,7 @@
                                       <Component id="lblSex" min="-2" pref="31" max="-2" attributes="0"/>
                                   </Group>
                               </Group>
-                              <EmptySpace pref="74" max="32767" attributes="0"/>
+                              <EmptySpace pref="68" max="32767" attributes="0"/>
                           </Group>
                           <Group type="102" alignment="0" attributes="0">
                               <EmptySpace max="-2" attributes="0"/>
@@ -519,12 +524,12 @@
                         </Property>
                       </Properties>
                     </Component>
-                    <Component class="javax.swing.JLabel" name="lblDoor">
+                    <Component class="javax.swing.JLabel" name="lblBranch">
                       <Properties>
                         <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                           <Font name="Poppins" size="18" style="1"/>
                         </Property>
-                        <Property name="text" type="java.lang.String" value="Door Number"/>
+                        <Property name="text" type="java.lang.String" value="Branch"/>
                         <Property name="toolTipText" type="java.lang.String" value="Room Number"/>
                       </Properties>
                     </Component>
@@ -543,13 +548,14 @@
                         <DimensionLayout dim="0">
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="102" alignment="1" attributes="0">
-                                  <EmptySpace max="-2" attributes="0"/>
-                                  <Component id="jScrollPane2" pref="0" max="32767" attributes="0"/>
-                              </Group>
-                              <Group type="102" alignment="1" attributes="0">
                                   <EmptySpace pref="106" max="32767" attributes="0"/>
                                   <Component id="lblDoor2" min="-2" max="-2" attributes="0"/>
                                   <EmptySpace min="-2" pref="99" max="-2" attributes="0"/>
+                              </Group>
+                              <Group type="102" alignment="0" attributes="0">
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Component id="jScrollPane2" pref="0" max="32767" attributes="0"/>
+                                  <EmptySpace max="-2" attributes="0"/>
                               </Group>
                           </Group>
                         </DimensionLayout>
