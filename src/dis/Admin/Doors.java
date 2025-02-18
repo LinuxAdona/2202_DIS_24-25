@@ -74,15 +74,18 @@ public class Doors extends javax.swing.JFrame {
     private void loadResidents(int doorId) {
         DefaultTableModel model = (DefaultTableModel) tbResidents.getModel();
         model.setRowCount(0); // Clear existing data
-        
+
         for (int i = 0; i < tbResidents.getColumnModel().getColumnCount(); i++) {
             tbResidents.getColumnModel().getColumn(i).setResizable(false);
         }
 
         double totalElectricUsage = 0;
         double totalWaterUsage = 0;
+        double totalElectricBill = 0;
+        double totalWaterBill = 0;
 
         try (Connection conn = DBConnection.Connect()) {
+            // Load residents
             String sql = "SELECT u.user_id, p.first_name, p.last_name, p.contact_number "
                     + "FROM profiles p "
                     + "JOIN users u ON p.user_id = u.user_id "
@@ -96,20 +99,21 @@ public class Doors extends javax.swing.JFrame {
                         String contact = rs.getString("contact_number");
                         model.addRow(new Object[]{userId, name, contact});
 
-                        String usageSql = "SELECT SUM(meter_usage) AS total_usage, meter_type "
+                        // Calculate usage for each resident
+                        String usageSql = "SELECT meter_usage, meter_type "
                                 + "FROM meters "
-                                + "WHERE user_id = ? "
+                                + "WHERE door_id = ? "
                                 + "GROUP BY meter_type";
                         try (PreparedStatement psUsage = conn.prepareStatement(usageSql)) {
-                            psUsage.setInt(1, userId);
+                            psUsage.setInt(1, doorId);
                             try (ResultSet rsUsage = psUsage.executeQuery()) {
                                 while (rsUsage.next()) {
                                     String meterType = rsUsage.getString("meter_type");
-                                    double totalUsage = rsUsage.getDouble("total_usage");
+                                    double totalUsage = rsUsage.getDouble("meter_usage");
                                     if ("electric".equals(meterType)) {
-                                        totalElectricUsage += totalUsage;
+                                        totalElectricUsage = totalUsage;
                                     } else if ("water".equals(meterType)) {
-                                        totalWaterUsage += totalUsage;
+                                        totalWaterUsage = totalUsage;
                                     }
                                 }
                             }
@@ -117,47 +121,110 @@ public class Doors extends javax.swing.JFrame {
                     }
                 }
             }
+
+            // Calculate total bills for the door
+            String billElectricSql = "SELECT IFNULL(SUM(meter_bill), 0) AS totalElectricityBill "
+                    + "FROM billings WHERE meter_type = 'electric'";
+            String billWaterSql = "SELECT IFNULL(SUM(meter_bill), 0) AS totalWaterBill "
+                    + "FROM billings WHERE meter_type = 'water'";
+
+            // Calculate total electric bill
+            try (PreparedStatement psEBill = conn.prepareStatement(billElectricSql)) {
+                try (ResultSet rsEBill = psEBill.executeQuery()) {
+                    if (rsEBill.next()) {
+                        totalElectricBill = rsEBill.getDouble("totalElectricityBill");
+                    }
+                }
+            }
+
+            // Calculate total water bill
+            try (PreparedStatement psWBill = conn.prepareStatement(billWaterSql)) {
+                try (ResultSet rsWBill = psWBill.executeQuery()) {
+                    if (rsWBill.next()) {
+                        totalWaterBill = rsWBill.getDouble("totalWaterBill");
+                    }
+                }
+            }
         } catch (SQLException e) {
             showErrorMessage("Database error: " + e.getMessage());
         }
 
+        // Update labels with total usage and bills
         lblEUsage.setText(totalElectricUsage + " kwh");
         lblWusage.setText(totalWaterUsage + " m³");
+        lblEBill.setText("PHP " + totalElectricBill);
+        lblWBill.setText("PHP " + totalWaterBill);
     }
 
     private void loadUsage(int userID) {
+        int residentCount = 0;
         try (Connection conn = DBConnection.Connect()) {
-            String sql = "SELECT SUM(meter_usage) AS total_usage, meter_type "
+            
+            String doorIdSql = "SELECT door_id FROM profiles WHERE user_id = ?";
+            int doorID = -1;
+            try (PreparedStatement psDoor = conn.prepareStatement(doorIdSql)) {
+                psDoor.setInt(1, userID);
+                ResultSet rsDoor = psDoor.executeQuery();
+                if (rsDoor.next()) {
+                    doorID = rsDoor.getInt("door_id");
+                }
+            }
+
+            if (doorID == -1) {
+                showErrorMessage("No door found for this user.");
+                return;
+            }
+            
+            String residentSql = "SELECT COUNT(*) AS resident_count FROM profiles WHERE door_id = ?";
+            try (PreparedStatement psResident = conn.prepareStatement(residentSql)) {
+                psResident.setInt(1, doorID);
+                ResultSet rsResident = psResident.executeQuery();
+                if (rsResident.next()) {
+                    residentCount = rsResident.getInt("resident_count");
+                }
+            }
+
+            if (residentCount == 0) {
+                showErrorMessage("No residents found for this door. Cannot add readings.");
+                return;
+            }
+
+            // Retrieve meter usage for the door
+            String usageSql = "SELECT meter_usage, meter_type "
                     + "FROM meters "
-                    + "WHERE user_id = ? "
+                    + "WHERE door_id = ? "
                     + "GROUP BY meter_type";
-            String sqlEb = "SELECT IFNULL(SUM(meter_bill), 0) AS totalElectricityBill FROM billings WHERE meter_type = 'electric' AND user_id = ?";
-            String sqlWb = "SELECT IFNULL(SUM(meter_bill), 0) AS totalWaterBill FROM billings WHERE meter_type = 'water' AND user_id = ?";
-            try (PreparedStatement ps = conn.prepareStatement(sql);
-                    PreparedStatement psE = conn.prepareStatement(sqlEb);
-                    PreparedStatement psW = conn.prepareStatement(sqlWb)) {
-                ps.setInt(1, userID);
-                psE.setInt(1, userID);
-                psW.setInt(1, userID);
-                try (ResultSet rs = ps.executeQuery();
-                    ResultSet rsE = psE.executeQuery();
-                    ResultSet rsW = psW.executeQuery()) {
-                    while (rs.next()) {
-                        String meterType = rs.getString("meter_type");
-                        double totalUsage = rs.getDouble("total_usage");
+            try (PreparedStatement psUsage = conn.prepareStatement(usageSql)) {
+                psUsage.setInt(1, doorID);
+                try (ResultSet rsUsage = psUsage.executeQuery()) {
+                    while (rsUsage.next()) {
+                        String meterType = rsUsage.getString("meter_type");
+                        double totalUsage = rsUsage.getDouble("meter_usage") / residentCount;
                         if ("electric".equals(meterType)) {
                             lblEUsage.setText(totalUsage + " kwh");
                         } else if ("water".equals(meterType)) {
                             lblWusage.setText(totalUsage + " m³");
                         }
                     }
-                    
-                    while (rsE.next()) { 
-                        lblEBill.setText("PHP " + rsE.getString("totalElectricityBill"));
+                }
+            }
+
+            // Retrieve billing information for the user
+            String billingElectricitySql = "SELECT IFNULL(SUM(meter_bill), 0) AS totalElectricityBill "
+                    + "FROM billings WHERE meter_type = 'electric' AND user_id = ?";
+            String billingWaterSql = "SELECT IFNULL(SUM(meter_bill), 0) AS totalWaterBill "
+                    + "FROM billings WHERE meter_type = 'water' AND user_id = ?";
+
+            try (PreparedStatement psEBill = conn.prepareStatement(billingElectricitySql); PreparedStatement psWBill = conn.prepareStatement(billingWaterSql)) {
+                psEBill.setInt(1, userID);
+                psWBill.setInt(1, userID);
+
+                try (ResultSet rsEBill = psEBill.executeQuery(); ResultSet rsWBill = psWBill.executeQuery()) {
+                    if (rsEBill.next()) {
+                        lblEBill.setText("PHP " + rsEBill.getString("totalElectricityBill"));
                     }
-                    
-                    while (rsW.next()) {
-                        lblWBill.setText("PHP " + rsW.getString("totalWaterBill"));
+                    if (rsWBill.next()) {
+                        lblWBill.setText("PHP " + rsWBill.getString("totalWaterBill"));
                     }
                 }
             }
@@ -607,80 +674,76 @@ public class Doors extends javax.swing.JFrame {
     }//GEN-LAST:event_lblAccountsMouseClicked
 
     private void btnReadingActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnReadingActionPerformed
-        int selectedRow = tbResidents.getSelectedRow();
-        if (selectedRow != -1) {
-            int userID = (int) tbResidents.getValueAt(selectedRow, 0);
+        int selectedDoorRow = tbDoors.getSelectedRow();
+        if (selectedDoorRow != -1) {
+            int doorID = (int) tbDoors.getValueAt(selectedDoorRow, 0);
 
             // Get the current values from the text fields
             double electricUsage = Double.parseDouble(txtEusage.getText());
             double waterUsage = Double.parseDouble(txtWusage.getText());
 
-            // Calculate costs
-            double electricRate = 11.50; // PHP per kWh
-            double waterRate = 2.00; // PHP per cubic meter
-            double electricCost = electricUsage * electricRate;
-            double waterCost = waterUsage * waterRate;
-            double totalCost = electricCost + waterCost;
+            // Retrieve residents for the selected door
+            int residentCount = 0;
+            double totalElectricCost = 0;
+            double totalWaterCost = 0;
 
-            // Add or update the new readings in the meters table
             try (Connection conn = DBConnection.Connect()) {
-                String checkSql = "SELECT COUNT(*) FROM meters WHERE user_id = ? AND reading_date = CURDATE()";
-                try (PreparedStatement psCheck = conn.prepareStatement(checkSql)) {
-                    psCheck.setInt(1, userID);
-                    ResultSet rsCheck = psCheck.executeQuery();
-                    rsCheck.next();
-                    int count = rsCheck.getInt(1);
-
-                    if (count > 0) {
-                        String updateSql = "UPDATE meters SET meter_usage = meter_usage + ? WHERE user_id = ? AND meter_type = 'electric' AND reading_date = CURDATE()";
-                        try (PreparedStatement psUpdate = conn.prepareStatement(updateSql)) {
-                            psUpdate.setDouble(1, electricUsage);
-                            psUpdate.setInt(2, userID);
-                            psUpdate.executeUpdate();
-                        }
-
-                        updateSql = "UPDATE meters SET meter_usage = meter_usage + ? WHERE user_id = ? AND meter_type = 'water' AND reading_date = CURDATE()";
-                        try (PreparedStatement psUpdate = conn.prepareStatement(updateSql)) {
-                            psUpdate.setDouble(1, waterUsage);
-                            psUpdate.setInt(2, userID);
-                            psUpdate.executeUpdate();
-                        }
-                    } else {
-                        String insertSql = "INSERT INTO meters (user_id, meter_type, meter_usage, reading_date) VALUES (?, ?, ?, CURDATE())";
-                        try (PreparedStatement psInsert = conn.prepareStatement(insertSql)) {
-                            psInsert.setInt(1, userID);
-                            psInsert.setString(2, "electric");
-                            psInsert.setDouble(3, electricUsage);
-                            psInsert.executeUpdate();
-
-                            psInsert.setString(2, "water");
-                            psInsert.setDouble(3, waterUsage);
-                            psInsert.executeUpdate();
-                        }
+                String residentSql = "SELECT COUNT(*) AS resident_count FROM profiles WHERE door_id = ?";
+                try (PreparedStatement psResident = conn.prepareStatement(residentSql)) {
+                    psResident.setInt(1, doorID);
+                    ResultSet rsResident = psResident.executeQuery();
+                    if (rsResident.next()) {
+                        residentCount = rsResident.getInt("resident_count");
                     }
                 }
 
-                
+                if (residentCount == 0) {
+                    showErrorMessage("No residents found for this door. Cannot add readings.");
+                    return;
+                }
+
+                // Calculate costs
+                double electricRate = 11.50; // PHP per kWh
+                double waterRate = 2.00; // PHP per cubic meter
+                totalElectricCost = electricUsage * electricRate;
+                totalWaterCost = waterUsage * waterRate;
+
+                // Add or update the new readings in the meters table
+                String insertSql = "INSERT INTO meters (door_id, meter_type, meter_usage, reading_date) VALUES (?, ?, ?, CURDATE())";
+                try (PreparedStatement psInsert = conn.prepareStatement(insertSql)) {
+                    psInsert.setInt(1, doorID);
+                    psInsert.setString(2, "electric");
+                    psInsert.setDouble(3, electricUsage);
+                    psInsert.executeUpdate();
+
+                    psInsert.setString(2, "water");
+                    psInsert.setDouble(3, waterUsage);
+                    psInsert.executeUpdate();
+                }
+
+                // Distribute billing costs among residents
                 String billingSql = "INSERT INTO billings (user_id, rent, meter_type, meter_bill, due_date, status) "
-                        + "VALUES (?, 2000, ?, ?, CURDATE() + INTERVAL 30 DAY, 'unpaid') ";
+                        + "SELECT user_id, 2000, ?, ?, CURDATE() + INTERVAL 30 DAY, 'unpaid' "
+                        + "FROM profiles WHERE door_id = ?";
                 try (PreparedStatement psBilling = conn.prepareStatement(billingSql)) {
-                    psBilling.setInt(1, userID);
-                    psBilling.setString(2, "electric");
-                    psBilling.setDouble(3, electricCost);
+                    psBilling.setString(1, "electric");
+                    psBilling.setDouble(2, totalElectricCost / residentCount);
+                    psBilling.setInt(3, doorID);
                     psBilling.executeUpdate();
-                    
-                    psBilling.setString(2, "water");
-                    psBilling.setDouble(3, waterCost);
+
+                    psBilling.setString(1, "water");
+                    psBilling.setDouble(2, totalWaterCost / residentCount);
+                    psBilling.setInt(3, doorID);
                     psBilling.executeUpdate();
                 }
 
                 JOptionPane.showMessageDialog(this, "Readings and billing added successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
-                loadUsage(userID);
+                loadUsage(doorID); // Optionally load usage for the door
             } catch (SQLException e) {
                 showErrorMessage("Database error: " + e.getMessage());
             }
         } else {
-            JOptionPane.showMessageDialog(this, "Please select a resident to add readings.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please select a door to add readings.", "Selection Error", JOptionPane.WARNING_MESSAGE);
         }
     }//GEN-LAST:event_btnReadingActionPerformed
 

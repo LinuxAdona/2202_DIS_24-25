@@ -56,7 +56,7 @@ public class Super_Accounts extends javax.swing.JFrame {
                     + "FROM users u "
                     + "INNER JOIN profiles p ON u.user_id = p.user_id "
                     + "INNER JOIN doors d ON p.door_id = d.door_id "
-                    + "WHERE u.role = 'residents' OR u.role = 'admins' " // Changed AND to OR
+                    + "WHERE u.role = 'residents' OR u.role = 'admins' "
                     + "ORDER BY u.user_id ASC ";
             String profileSql = "SELECT * FROM profiles WHERE user_id = ?";
             String branchSql = "SELECT d.branch_id, a.municipality FROM branches b "
@@ -243,14 +243,14 @@ public class Super_Accounts extends javax.swing.JFrame {
 
     private void loadBranches() {
         try (Connection conn = DBConnection.Connect()) {
-            String doorSql = "SELECT a.municipality FROM branches b "
+            String branchSql = "SELECT a.municipality FROM branches b "
                     + "INNER JOIN address a ON b.address_id = a.address_id "
                     + "ORDER BY a.municipality";
-            try (PreparedStatement psDoor = conn.prepareStatement(doorSql); ResultSet rsDoor = psDoor.executeQuery()) {
-                cbDoor.removeAllItems();
+            try (PreparedStatement psBranch = conn.prepareStatement(branchSql); ResultSet rsDoor = psBranch.executeQuery()) {
+                cbBranch.removeAllItems();
                 while (rsDoor.next()) {
-                    String doorNumber = rsDoor.getString("municipality");
-                    cbDoor.addItem(doorNumber);
+                    String municipality = rsDoor.getString("municipality");
+                    cbBranch.addItem(municipality);
                 }
             }
         } catch (SQLException e) {
@@ -295,7 +295,7 @@ public class Super_Accounts extends javax.swing.JFrame {
         lblDob = new javax.swing.JLabel();
         lblAddress = new javax.swing.JLabel();
         lblDoor1 = new javax.swing.JLabel();
-        cbDoor = new javax.swing.JComboBox<>();
+        cbBranch = new javax.swing.JComboBox<>();
         btnAssign = new javax.swing.JButton();
         btnMessage = new javax.swing.JButton();
         txtSearch = new javax.swing.JTextField();
@@ -577,7 +577,7 @@ public class Super_Accounts extends javax.swing.JFrame {
         lblDoor1.setText("Branch:");
         lblDoor1.setToolTipText("Room Number");
 
-        cbDoor.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        cbBranch.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
 
         btnAssign.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
         btnAssign.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/edit-regular-24.png"))); // NOI18N
@@ -645,7 +645,7 @@ public class Super_Accounts extends javax.swing.JFrame {
                                 .addGroup(deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                     .addComponent(btnMessage)
                                     .addComponent(lblDoor1)
-                                    .addComponent(cbDoor, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(cbBranch, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
                                     .addComponent(btnAssign, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE))))
                         .addGap(0, 8, Short.MAX_VALUE))))
         );
@@ -674,7 +674,7 @@ public class Super_Accounts extends javax.swing.JFrame {
                         .addGap(9, 9, 9)
                         .addComponent(lblDoor1)
                         .addGap(6, 6, 6)
-                        .addComponent(cbDoor, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(cbBranch, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(8, 8, 8)
                         .addComponent(btnAssign, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addGap(6, 6, 6)
@@ -782,44 +782,30 @@ public class Super_Accounts extends javax.swing.JFrame {
         String userID = getLoggedInUserID();
         if (selectedRow != -1) {
             String userId = tbAccounts.getValueAt(selectedRow, 0).toString();
-            String selectedDoor = (String) cbDoor.getSelectedItem();
-
+            String selectedBranch = (String) cbBranch.getSelectedItem();
+            
             try (Connection conn = DBConnection.Connect()) {
-                String countSql = "SELECT d.available FROM doors d "
-                + "INNER JOIN branches b ON d.branch_id = d.branch_id "
-                + "WHERE d.branch_id = (SELECT branch_id FROM branches WHERE user_id = ?) AND d.door_id IN (SELECT door_id FROM doors WHERE door_number = ?)";
-                try (PreparedStatement psCount = conn.prepareStatement(countSql)) {
-                    psCount.setString(1, userID);
-                    psCount.setString(2, selectedDoor);
-                    ResultSet rsCount = psCount.executeQuery();
+                String sql = "SELECT * FROM branches WHERE user_id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setString(1, userId);
+                    ResultSet rs = ps.executeQuery();
+                    
+                    if (rs.next()) {
+                        JOptionPane.showMessageDialog(this, "This account is already assigned to a branch.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+                    } else {
+                        String addressID = rs.getString("address_id");
+                        String sqlU = "UPDATE branches SET user_id = ? WHERE address_id = (SELECT address_id FROM address WHERE address_id = ?)";
+                        try (PreparedStatement psU = conn.prepareStatement(sqlU)) {
+                            psU.setString(1, userId);
+                            psU.setString(2, addressID);
+                            int rowsAffected = psU.executeUpdate();
 
-                    int currentCount = 0;
-                    if (rsCount.next()) {
-                        currentCount = rsCount.getInt("available");
-                    }
-
-                    if (currentCount == 0) {
-                        showErrorMessage("Cannot assign door. The door is already at full capacity (4 residents).");
-                        return;
-                    }
-
-                    String updateSql = "UPDATE profiles SET door_id = ("
-                    + "SELECT d.door_id FROM doors d "
-                    + "INNER JOIN branches b ON d.branch_id = b.branch_id "
-                    + "WHERE d.door_number = ? AND b.branch_id IN (SELECT branch_id FROM branches WHERE user_id = ?) "
-                    + "LIMIT 1) " // Ensure only one result is returned
-                    + "WHERE user_id = ?;";
-                    try (PreparedStatement psUpdate = conn.prepareStatement(updateSql)) {
-                        psUpdate.setString(1, selectedDoor);
-                        psUpdate.setString(2, userID);
-                        psUpdate.setString(3, userId);
-                        int rowsAffected = psUpdate.executeUpdate();
-
-                        if (rowsAffected > 0) {
-                            JOptionPane.showMessageDialog(this, "Door assigned successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
-                            loadAccounts();
-                        } else {
-                            showErrorMessage("Failed to assign door. Please try again.");
+                            if (rowsAffected > 0) {
+                                JOptionPane.showMessageDialog(this, "Branch assigned successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                                loadAccounts();
+                            } else {
+                                showErrorMessage("Failed to assign branch. Please try again.");
+                            }
                         }
                     }
                 }
@@ -827,7 +813,7 @@ public class Super_Accounts extends javax.swing.JFrame {
                 showErrorMessage("Database error: " + e.getMessage());
             }
         } else {
-            JOptionPane.showMessageDialog(this, "Please select an account to assign a door.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please select an account to assign a branch.", "Selection Error", JOptionPane.WARNING_MESSAGE);
         }
     }//GEN-LAST:event_btnAssignActionPerformed
 
@@ -1004,7 +990,7 @@ public class Super_Accounts extends javax.swing.JFrame {
     private javax.swing.JButton btnMessage;
     private javax.swing.JButton btnSearch;
     private javax.swing.JButton btnSearch1;
-    private javax.swing.JComboBox<String> cbDoor;
+    private javax.swing.JComboBox<String> cbBranch;
     private javax.swing.JPanel contentPanel;
     private javax.swing.JPanel deetPanel;
     private javax.swing.JPanel heroPanel;
