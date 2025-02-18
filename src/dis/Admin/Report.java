@@ -4,7 +4,13 @@
  */
 package dis.Admin;
 
+import Database.DBConnection;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import javax.swing.JOptionPane;
+import javax.swing.table.DefaultTableModel;
 import strt.Login;
 
 /**
@@ -18,6 +24,120 @@ public class Report extends javax.swing.JFrame {
      */
     public Report() {
         initComponents();
+        loadReport();
+        configurations();
+    }
+
+    private void configurations() {
+        // Set up the start date chooser with the current date
+        dcStartDate.setDate(new java.util.Date()); // Set current date as default
+
+        // Set up the end date chooser with the current date
+        dcEndDatee.setDate(new java.util.Date()); // Set current date as default
+    }
+
+    private void showErrorMessage(String message) {
+        JOptionPane.showMessageDialog(this, message, "Login Error", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private String getLoggedInUserID() {
+        return Login.loggedInUserID;
+    }
+
+    private void loadReport() {
+        DefaultTableModel model = (DefaultTableModel) tbReport.getModel();
+        model.setRowCount(0); // Clear existing rows
+        String userID = getLoggedInUserID();
+
+        // Get dates from JDateChooser
+        java.util.Date startDateUtil = dcStartDate.getDate();
+        java.util.Date endDateUtil = dcEndDatee.getDate();
+
+        // Validate dates
+        if (startDateUtil == null || endDateUtil == null) {
+            showErrorMessage("Please select both start and end dates.");
+            return;
+        }
+
+        if (startDateUtil.after(endDateUtil)) {
+            showErrorMessage("Start date must be before end date.");
+            return;
+        }
+
+        // Convert to SQL dates
+        java.sql.Date startDate = new java.sql.Date(startDateUtil.getTime());
+        java.sql.Date endDate = new java.sql.Date(endDateUtil.getTime());
+
+        // Get selected status and type
+        String selectedStatus = (String) cbStatus.getSelectedItem();
+        String selectedType = (String) cbType.getSelectedItem();
+
+        // Build SQL query with filters
+        StringBuilder sql = new StringBuilder(
+                "SELECT b.user_id, p.first_name, p.last_name, (b.rent * ?) AS rent, b.meter_type, "
+                + "b.meter_bill, b.due_date, b.status "
+                + "FROM billings b "
+                + "INNER JOIN profiles p ON b.user_id = p.user_id "
+                + "INNER JOIN doors d ON p.door_id = d.door_id "
+                + "WHERE (b.due_date BETWEEN ? AND ?) AND d.branch_id = (SELECT branch_id FROM branches WHERE user_id = ?)"
+        );
+
+        double total = 0.0;
+        int num = 2;
+
+        // Add status filter
+        if ("Paid".equalsIgnoreCase(selectedStatus)) {
+            sql.append("AND b.status = 'paid' ");
+        } else if ("UnPaid".equalsIgnoreCase(selectedStatus)) {
+            sql.append("AND b.status = 'unpaid' ");
+        } else {
+            num = 1;
+        }
+
+        // Add meter type filter
+        if ("Electricity".equalsIgnoreCase(selectedType)) {
+            sql.append("AND b.meter_type = 'electric' ");
+        } else if ("Water".equalsIgnoreCase(selectedType)) {
+            sql.append("AND b.meter_type = 'water' ");
+        } else {
+            num = 1;
+        }
+
+        // Execute query
+        try (Connection conn = DBConnection.Connect(); PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            ps.setInt(1, num);
+            ps.setDate(2, startDate);
+            ps.setDate(3, endDate);
+            ps.setString(4, userID);
+
+            ResultSet rs = ps.executeQuery();
+
+            // Display results in table and calculate total
+            while (rs.next()) {
+                Object[] row = {
+                    rs.getInt("user_id"),
+                    rs.getString("first_name") + " " + rs.getString("last_name"),
+                    rs.getDouble("rent"),
+                    rs.getString("meter_type"),
+                    rs.getDouble("meter_bill"),
+                    rs.getDate("due_date"),
+                    rs.getString("status")
+                };
+                model.addRow(row);
+
+                // Accumulate total
+                total += rs.getDouble("rent") + rs.getDouble("meter_bill");
+            }
+
+            // Set total in the text field
+            txtTotal.setText("PHP " + String.format("%.2f", total)); // Format to 2 decimal places
+
+            if (model.getRowCount() == 0) {
+                showErrorMessage("No records found for the selected filters.");
+            }
+        } catch (SQLException e) {
+            showErrorMessage("Database error: " + e.getMessage());
+        }
     }
 
     /**
@@ -40,7 +160,20 @@ public class Report extends javax.swing.JFrame {
         heroPanel = new javax.swing.JPanel();
         lblTitle = new javax.swing.JLabel();
         lblBG = new javax.swing.JLabel();
-        deetPanel = new javax.swing.JPanel();
+        dcEndDate = new javax.swing.JPanel();
+        jLabel1 = new javax.swing.JLabel();
+        jLabel2 = new javax.swing.JLabel();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        tbReport = new javax.swing.JTable();
+        cbStatus = new javax.swing.JComboBox<>();
+        jLabel3 = new javax.swing.JLabel();
+        cbType = new javax.swing.JComboBox<>();
+        jLabel4 = new javax.swing.JLabel();
+        btnGenerate = new javax.swing.JButton();
+        dcEndDatee = new com.toedter.calendar.JDateChooser();
+        dcStartDate = new com.toedter.calendar.JDateChooser();
+        jLabel6 = new javax.swing.JLabel();
+        txtTotal = new javax.swing.JTextField();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setAlwaysOnTop(true);
@@ -75,6 +208,11 @@ public class Report extends javax.swing.JFrame {
         lblHome1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/user-account-solid-24.png"))); // NOI18N
         lblHome1.setText(" Accounts");
         lblHome1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lblHome1.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                lblHome1MouseClicked(evt);
+            }
+        });
 
         lblDoors.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
         lblDoors.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/door-open-solid-24.png"))); // NOI18N
@@ -144,7 +282,7 @@ public class Report extends javax.swing.JFrame {
             .addGroup(heroPanelLayout.createSequentialGroup()
                 .addGap(37, 37, 37)
                 .addComponent(lblTitle)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 113, Short.MAX_VALUE)
                 .addComponent(lblBG, javax.swing.GroupLayout.PREFERRED_SIZE, 500, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
         heroPanelLayout.setVerticalGroup(
@@ -158,17 +296,136 @@ public class Report extends javax.swing.JFrame {
                 .addGap(11, 11, 11))
         );
 
-        deetPanel.setBackground(new java.awt.Color(247, 247, 247));
+        dcEndDate.setBackground(new java.awt.Color(247, 247, 247));
 
-        javax.swing.GroupLayout deetPanelLayout = new javax.swing.GroupLayout(deetPanel);
-        deetPanel.setLayout(deetPanelLayout);
-        deetPanelLayout.setHorizontalGroup(
-            deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 815, Short.MAX_VALUE)
+        jLabel1.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        jLabel1.setText("Starting Date:");
+
+        jLabel2.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        jLabel2.setText("End Date:");
+
+        tbReport.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        tbReport.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null, null, null, null},
+                {null, null, null, null, null, null, null},
+                {null, null, null, null, null, null, null},
+                {null, null, null, null, null, null, null}
+            },
+            new String [] {
+                "ID", "Name", "Rent", "Type", "Bill", "Due Date", "Status"
+            }
+        ));
+        tbReport.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        tbReport.setRowHeight(30);
+        tbReport.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                tbReportMouseClicked(evt);
+            }
+        });
+        jScrollPane1.setViewportView(tbReport);
+
+        cbStatus.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        cbStatus.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Select", "Paid", "UnPaid" }));
+
+        jLabel3.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        jLabel3.setText("Status:");
+
+        cbType.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        cbType.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Select", "Water", "Electricity" }));
+
+        jLabel4.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        jLabel4.setText("Type:");
+
+        btnGenerate.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        btnGenerate.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/notepad-regular-24.png"))); // NOI18N
+        btnGenerate.setText(" Generate Report");
+        btnGenerate.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        btnGenerate.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnGenerateActionPerformed(evt);
+            }
+        });
+
+        dcEndDatee.setDateFormatString("MM/dd/yyyy");
+        dcEndDatee.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+
+        dcStartDate.setDateFormatString("MM/dd/yyyy");
+        dcStartDate.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+
+        jLabel6.setFont(new java.awt.Font("Poppins", 1, 24)); // NOI18N
+        jLabel6.setText("Total:");
+
+        txtTotal.setFont(new java.awt.Font("Poppins", 0, 24)); // NOI18N
+
+        javax.swing.GroupLayout dcEndDateLayout = new javax.swing.GroupLayout(dcEndDate);
+        dcEndDate.setLayout(dcEndDateLayout);
+        dcEndDateLayout.setHorizontalGroup(
+            dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(dcEndDateLayout.createSequentialGroup()
+                .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(dcEndDateLayout.createSequentialGroup()
+                        .addGap(17, 17, 17)
+                        .addComponent(jLabel1)
+                        .addGap(45, 45, 45))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, dcEndDateLayout.createSequentialGroup()
+                        .addContainerGap()
+                        .addComponent(dcStartDate, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)))
+                .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel2)
+                    .addComponent(dcEndDatee, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel3)
+                    .addComponent(cbStatus, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel4)
+                    .addGroup(dcEndDateLayout.createSequentialGroup()
+                        .addComponent(cbType, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(btnGenerate)))
+                .addContainerGap())
+            .addGroup(dcEndDateLayout.createSequentialGroup()
+                .addGap(17, 17, 17)
+                .addComponent(jLabel6)
+                .addGap(18, 18, 18)
+                .addComponent(txtTotal, javax.swing.GroupLayout.PREFERRED_SIZE, 400, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(dcEndDateLayout.createSequentialGroup()
+                    .addContainerGap()
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 803, Short.MAX_VALUE)
+                    .addContainerGap()))
         );
-        deetPanelLayout.setVerticalGroup(
-            deetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 500, Short.MAX_VALUE)
+        dcEndDateLayout.setVerticalGroup(
+            dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(dcEndDateLayout.createSequentialGroup()
+                .addGap(16, 16, 16)
+                .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel1)
+                    .addComponent(jLabel2)
+                    .addComponent(jLabel3)
+                    .addComponent(jLabel4))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(dcEndDatee, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(cbStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(cbType, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(btnGenerate, javax.swing.GroupLayout.PREFERRED_SIZE, 41, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(dcStartDate, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(jLabel6, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(txtTotal, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(16, 16, 16))
+            .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, dcEndDateLayout.createSequentialGroup()
+                    .addContainerGap(94, Short.MAX_VALUE)
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 333, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGap(73, 73, 73)))
         );
 
         javax.swing.GroupLayout contentPanelLayout = new javax.swing.GroupLayout(contentPanel);
@@ -176,14 +433,14 @@ public class Report extends javax.swing.JFrame {
         contentPanelLayout.setHorizontalGroup(
             contentPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(heroPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(deetPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(dcEndDate, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         contentPanelLayout.setVerticalGroup(
             contentPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(contentPanelLayout.createSequentialGroup()
                 .addComponent(heroPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(deetPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addComponent(dcEndDate, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout mainPanelLayout = new javax.swing.GroupLayout(mainPanel);
@@ -244,6 +501,20 @@ public class Report extends javax.swing.JFrame {
         this.dispose();
     }//GEN-LAST:event_lblReportMouseClicked
 
+    private void tbReportMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tbReportMouseClicked
+
+    }//GEN-LAST:event_tbReportMouseClicked
+
+    private void btnGenerateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnGenerateActionPerformed
+        loadReport();
+    }//GEN-LAST:event_btnGenerateActionPerformed
+
+    private void lblHome1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblHome1MouseClicked
+        Accounts account = new Accounts();
+        account.setVisible(true);
+        this.dispose();
+    }//GEN-LAST:event_lblHome1MouseClicked
+
     /**
      * @param args the command line arguments
      */
@@ -280,9 +551,20 @@ public class Report extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton btnGenerate;
+    private javax.swing.JComboBox<String> cbStatus;
+    private javax.swing.JComboBox<String> cbType;
     private javax.swing.JPanel contentPanel;
-    private javax.swing.JPanel deetPanel;
+    private javax.swing.JPanel dcEndDate;
+    private com.toedter.calendar.JDateChooser dcEndDatee;
+    private com.toedter.calendar.JDateChooser dcStartDate;
     private javax.swing.JPanel heroPanel;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel3;
+    private javax.swing.JLabel jLabel4;
+    private javax.swing.JLabel jLabel6;
+    private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JLabel lblBG;
     private javax.swing.JLabel lblDoors;
     private javax.swing.JLabel lblHome;
@@ -292,5 +574,7 @@ public class Report extends javax.swing.JFrame {
     private javax.swing.JLabel lblTitle;
     private javax.swing.JPanel mainPanel;
     private javax.swing.JPanel navPanel;
+    private javax.swing.JTable tbReport;
+    private javax.swing.JTextField txtTotal;
     // End of variables declaration//GEN-END:variables
 }

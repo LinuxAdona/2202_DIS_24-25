@@ -611,7 +611,7 @@ public class SuperAdmin_DB extends javax.swing.JFrame {
     }//GEN-LAST:event_lblBranchesPageMouseClicked
 
     private void lblReportMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lblReportMouseClicked
-        Report report = new Report();
+        Super_Report report = new Super_Report();
         report.setVisible(true);
         this.dispose();
     }//GEN-LAST:event_lblReportMouseClicked

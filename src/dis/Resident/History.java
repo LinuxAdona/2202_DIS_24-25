@@ -33,41 +33,47 @@ public class History extends javax.swing.JFrame {
     private String getLoggedInUserID() {
         return Login.loggedInUserID;
     }
+
+    private void showErrorMessage(String message) {
+        JOptionPane.showMessageDialog(this, message, "Login Error", JOptionPane.ERROR_MESSAGE);
+    }
     
     private void loadPaymentsHistory() {
         DefaultTableModel model = (DefaultTableModel) tbPayments.getModel();
         model.setRowCount(0); // Clear existing rows
 
-        tbPayments.getTableHeader().setReorderingAllowed(false);
+        // Get the logged-in user's ID
+        String userID = getLoggedInUserID();
 
-        for (int i = 0; i < tbPayments.getColumnModel().getColumnCount(); i++) {
-            tbPayments.getColumnModel().getColumn(i).setResizable(false);
-        }
-
-        String query = "SELECT b.rent, b.electric_usage, b.water_usage, p.amount_paid, p.date_paid "
+        // SQL query to retrieve payment history for the logged-in user
+        String query = "SELECT b.rent, b.meter_type, b.meter_bill, p.amount_paid, p.date_paid "
                 + "FROM Billings b "
                 + "JOIN Payments p ON b.user_id = p.user_id "
                 + "JOIN Users u ON p.user_id = u.user_id "
                 + "WHERE b.status = 'paid' AND u.user_id = ?";
 
         try (Connection conn = DBConnection.Connect(); PreparedStatement pstmt = conn.prepareStatement(query)) {
-            String userID = getLoggedInUserID();
-            pstmt.setString(1, userID);
+            pstmt.setString(1, userID); // Set the user ID in the query
             ResultSet rs = pstmt.executeQuery();
 
+            // Populate the table with the results
             while (rs.next()) {
-                // Assuming the columns are in the order: Rent, Electricity Bill, Water Bill, Amount Paid, Date
                 Object[] row = new Object[5];
                 row[0] = rs.getBigDecimal("rent"); // Rent
-                row[1] = rs.getBigDecimal("electric_usage"); // Electricity Bill
-                row[2] = rs.getBigDecimal("water_usage"); // Water Bill
+                String meterType = rs.getString("meter_type"); // Meter Type
+                row[1] = meterType.equalsIgnoreCase("electric") ? rs.getBigDecimal("meter_bill") : null; // Electricity Bill
+                row[2] = meterType.equalsIgnoreCase("water") ? rs.getBigDecimal("meter_bill") : null; // Water Bill
                 row[3] = rs.getDouble("amount_paid"); // Amount Paid
-                row[4] = rs.getDate("date_paid"); // Date
+                row[4] = rs.getDate("date_paid"); // Date Paid
 
                 model.addRow(row); // Add the row to the table model
             }
+
+            if (model.getRowCount() == 0) {
+                showErrorMessage("No payment history found for this resident.");
+            }
         } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Error loading payment history: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            showErrorMessage("Error loading payment history: " + e.getMessage());
         }
     }
     
