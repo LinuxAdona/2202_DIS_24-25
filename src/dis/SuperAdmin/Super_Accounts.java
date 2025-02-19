@@ -53,7 +53,7 @@ public class Super_Accounts extends javax.swing.JFrame {
 
         try (Connection conn = DBConnection.Connect()) {
             // Load all accounts (both residents and admins) with branch municipality
-            String userSql = "SELECT u.user_id, p.first_name, p.last_name, p.contact_number, p.sex, a.municipality "
+            String userSql = "SELECT u.user_id, p.first_name, p.last_name, p.contact_number, u.role, a.municipality "
                     + "FROM users u "
                     + "INNER JOIN profiles p ON u.user_id = p.user_id "
                     + "LEFT JOIN doors d ON p.door_id = d.door_id "
@@ -69,10 +69,11 @@ public class Super_Accounts extends javax.swing.JFrame {
                     String userId = rsUser.getString("user_id");
                     String name = rsUser.getString("first_name") + " " + rsUser.getString("last_name");
                     String contact = rsUser.getString("contact_number");
-                    String sex = rsUser.getString("sex");
+                    String role = ("admins".equals(rsUser.getString("role"))) ? "Admin" : "Tenant";
+                    System.out.println(rsUser.getString("municipality"));
                     String municipality = rsUser.getString("municipality") != null ? rsUser.getString("municipality") : "N/A";
 
-                    model.addRow(new Object[]{userId, name, contact, sex, municipality});
+                    model.addRow(new Object[]{userId, name, contact, role, municipality});
                 }
             }
 
@@ -431,7 +432,7 @@ public class Super_Accounts extends javax.swing.JFrame {
 
         lblPfp.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/default-profile.png"))); // NOI18N
 
-        lblName.setFont(new java.awt.Font("Poppins", 1, 36)); // NOI18N
+        lblName.setFont(new java.awt.Font("Poppins", 1, 24)); // NOI18N
 
         lblBranch.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
         lblBranch.setText("Branch");
@@ -809,7 +810,7 @@ public class Super_Accounts extends javax.swing.JFrame {
                     }
 
                     // Retrieve the door_id for the selected branch
-                    String doorIdSql = "SELECT p.door_id FROM doors d INNER JOIN profiles p ON p.door_id = d.door_id INNER JOIN users u ON p.user_id = u.user_id WHERE d.branch_id = (SELECT branch_id FROM branches WHERE address_id = (SELECT a.address_id FROM address a INNER JOIN branches b ON a.address_id = b.address_id WHERE a.municipality = ?)) AND u.role = 'admins'";
+                    String doorIdSql = "SELECT d.door_id FROM doors d INNER JOIN profiles p ON p.door_id = d.door_id INNER JOIN users u ON p.user_id = u.user_id WHERE d.branch_id = (SELECT branch_id FROM branches WHERE address_id = (SELECT a.address_id FROM address a INNER JOIN branches b ON a.address_id = b.address_id WHERE a.municipality = ?)) AND u.role = 'admins'";
                     String newDoorId = null;
                     try (PreparedStatement psDoorId = conn.prepareStatement(doorIdSql)) {
                         psDoorId.setString(1, selectedBranch);
@@ -1051,19 +1052,13 @@ public class Super_Accounts extends javax.swing.JFrame {
     private javax.swing.JLabel lblDoor1;
     private javax.swing.JLabel lblDoor2;
     private javax.swing.JLabel lblH;
-    private javax.swing.JLabel lblHome;
-    private javax.swing.JLabel lblHome1;
     private javax.swing.JLabel lblLogout;
     private javax.swing.JLabel lblName;
     private javax.swing.JLabel lblPfp;
     private javax.swing.JLabel lblR;
     private javax.swing.JLabel lblSex;
     private javax.swing.JLabel lblTitle;
-    private javax.swing.JPanel mainPanel;
-    private javax.swing.JPanel mainPanel1;
     private javax.swing.JPanel mainPanel2;
-    private javax.swing.JPanel navPanel;
-    private javax.swing.JPanel navPanel1;
     private javax.swing.JPanel navPanel2;
     private javax.swing.JTable tbAccounts;
     private javax.swing.JTable tbPayments;

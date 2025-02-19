@@ -332,7 +332,7 @@ public class Branches extends javax.swing.JFrame {
         try {
             // Prompt the user for the door number and availability
             String doorNumberStr = JOptionPane.showInputDialog(this, "Enter the door number:");
-            int doorNumber;
+            int doorNumber = 0;
             try {
                 doorNumber = Integer.parseInt(doorNumberStr);
             } catch (NumberFormatException e) {
@@ -342,11 +342,42 @@ public class Branches extends javax.swing.JFrame {
 
             // Insert the new room into the doors table
             try (Connection conn = DBConnection.Connect()) {
-                String insertRoomSql = "INSERT INTO doors (branch_id, door_number, available) VALUES (?, ?, 4)";
-                try (PreparedStatement ps = conn.prepareStatement(insertRoomSql)) {
+                int num = 4;
+                int doorID;
+                if (doorNumber == 100) {
+                    num = 1;
+                }
+                String insertRoomSql = "INSERT INTO doors (branch_id, door_number, available) VALUES (?, ?, ?)";
+                try (PreparedStatement ps = conn.prepareStatement(insertRoomSql, PreparedStatement.RETURN_GENERATED_KEYS)) {
                     ps.setInt(1, branchId);
                     ps.setInt(2, doorNumber);
+                    ps.setInt(3, num);
                     ps.executeUpdate();
+                    
+                    try (ResultSet generatedKeys = ps.getGeneratedKeys()) {
+                        if (generatedKeys.next()) {
+                            doorID = generatedKeys.getInt(1);
+                            if (num == 1) {
+                                String officeSql = "SELECT * FROM doors WHERE branch_id = ? AND door_number = ?";
+                                try (PreparedStatement psO = conn.prepareStatement(officeSql)) {
+                                    psO.setInt(1, branchId);
+                                    psO.setInt(2, 100);
+                                    ResultSet rsO = psO.executeQuery();
+                                    if (rsO.next()) {
+                                        String officeId = rsO.getString("door_id");
+                                        String updateOSql = "UPDATE profiles SET door_id = ? WHERE user_id = (SELECT user_id FROM branches WHERE branch_id = ?)";
+                                        try (PreparedStatement psUpdate = conn.prepareStatement(updateOSql)) {
+                                            psUpdate.setString(1, officeId);
+                                            psUpdate.setInt(2, branchId);
+                                            psUpdate.executeUpdate();
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            throw new SQLException("Inserting door failed, no ID obtained.");
+                        }
+                    }
                 }
             }
 
@@ -367,7 +398,7 @@ public class Branches extends javax.swing.JFrame {
             try (PreparedStatement ps = conn.prepareStatement(insertBranchSql, PreparedStatement.RETURN_GENERATED_KEYS)) {
                 ps.setInt(1, addressId);
                 ps.setString(2, getLoggedInUserID()); // Assuming the user ID is obtained from the logged-in user
-            ps.executeUpdate();
+                ps.executeUpdate();
 
                 // Get the generated branch ID
                 int branchId = -1;

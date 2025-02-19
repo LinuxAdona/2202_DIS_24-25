@@ -455,7 +455,7 @@ public class Accounts extends javax.swing.JFrame {
 
         lblPfp.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/default-profile.png"))); // NOI18N
 
-        lblName.setFont(new java.awt.Font("Poppins", 1, 36)); // NOI18N
+        lblName.setFont(new java.awt.Font("Poppins", 1, 24)); // NOI18N
 
         lblDoor.setFont(new java.awt.Font("Poppins", 1, 18)); // NOI18N
         lblDoor.setText("Door Number");
@@ -776,8 +776,8 @@ public class Accounts extends javax.swing.JFrame {
                 String availabilitySql = "SELECT available FROM doors WHERE door_id = ("
                         + "SELECT d.door_id FROM doors d "
                         + "INNER JOIN branches b ON d.branch_id = b.branch_id "
-                        + "WHERE d.door_id = (SELECT DISTINCT p.door_id FROM profiles p "
-                        + "INNER JOIN doors d ON p.door_id = d.door_id "
+                        + "WHERE d.door_id = (SELECT DISTINCT d.door_id FROM doors d "
+                        + "LEFT JOIN profiles p ON p.door_id = d.door_id "
                         + "INNER JOIN branches b ON b.branch_id = d.branch_id "
                         + "WHERE d.door_number = ? AND d.branch_id IN (SELECT branch_id FROM branches WHERE user_id = ?)) "
                         + "AND b.branch_id IN (SELECT branch_id FROM branches WHERE user_id = ?) "
@@ -803,14 +803,16 @@ public class Accounts extends javax.swing.JFrame {
                 String updateSql = "UPDATE profiles SET door_id = ("
                         + "SELECT d.door_id FROM doors d "
                         + "INNER JOIN branches b ON d.branch_id = b.branch_id "
-                        + "WHERE d.door_id = (SELECT DISTINCT p.door_id FROM profiles p INNER JOIN doors d ON p.door_id = d.door_id WHERE d.door_number = ?) "
+                        + "WHERE d.door_id = (SELECT DISTINCT d.door_id FROM doors d LEFT JOIN profiles p ON p.door_id = d.door_id "
+                        + "INNER JOIN branches b ON d.branch_id = b.branch_id WHERE d.door_number = ? AND d.branch_id = (SELECT branch_id FROM branches WHERE user_id = ?)) "
                         + "AND b.branch_id IN (SELECT branch_id FROM branches WHERE user_id = ?) "
                         + "LIMIT 1) "
                         + "WHERE user_id = ?;";
                 try (PreparedStatement psUpdate = conn.prepareStatement(updateSql)) {
                     psUpdate.setString(1, selectedDoor);
                     psUpdate.setString(2, userID);
-                    psUpdate.setString(3, userId);
+                    psUpdate.setString(3, userID);
+                    psUpdate.setString(4, userId);
                     int rowsAffected = psUpdate.executeUpdate();
 
                     if (rowsAffected > 0) {

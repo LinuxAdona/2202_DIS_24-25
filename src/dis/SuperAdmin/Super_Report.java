@@ -31,6 +31,7 @@ public class Super_Report extends javax.swing.JFrame {
     public Super_Report() {
         initComponents();
         loadReport();
+        loadBranches();
         configurations();
     }
     
@@ -48,6 +49,24 @@ public class Super_Report extends javax.swing.JFrame {
 
     private String getLoggedInUserID() {
         return Login.loggedInUserID;
+    }
+    
+    private void loadBranches() {
+        try (Connection conn = DBConnection.Connect()) {
+            String branchSql = "SELECT a.municipality FROM branches b "
+                    + "INNER JOIN address a ON b.address_id = a.address_id "
+                    + "ORDER BY a.municipality";
+            try (PreparedStatement psBranch = conn.prepareStatement(branchSql); ResultSet rsDoor = psBranch.executeQuery()) {
+                cbBranch.removeAllItems();
+                cbBranch.addItem("Select");
+                while (rsDoor.next()) {
+                    String municipality = rsDoor.getString("municipality");
+                    cbBranch.addItem(municipality);
+                }
+            }
+        } catch (SQLException e) {
+            showErrorMessage("Database error: " + e.getMessage());
+        }
     }
 
     private void loadReport() {
@@ -76,13 +95,17 @@ public class Super_Report extends javax.swing.JFrame {
         // Get selected status and type
         String selectedStatus = (String) cbStatus.getSelectedItem();
         String selectedType = (String) cbType.getSelectedItem();
+        String selectedBranch = (String) cbBranch.getSelectedItem();
 
         // Build SQL query with filters
         StringBuilder sql = new StringBuilder(
-                "SELECT b.user_id, p.first_name, p.last_name, (b.rent * ?) AS rent, b.meter_type, "
+                "SELECT br.branch_id, b.user_id, p.first_name, p.last_name, (b.rent * ?) AS rent, b.meter_type, "
                 + "b.meter_bill, b.due_date, b.status "
                 + "FROM billings b "
-                + "JOIN profiles p ON b.user_id = p.user_id "
+                + "INNER JOIN profiles p ON b.user_id = p.user_id "
+                + "INNER JOIN doors d ON p.door_id = d.door_id "
+                + "INNER JOIN branches br ON d.branch_id = br.branch_id "
+                + "INNER JOIN address a ON br.address_id = a.address_id "
                 + "WHERE b.due_date BETWEEN ? AND ? "
         );
 
@@ -107,12 +130,19 @@ public class Super_Report extends javax.swing.JFrame {
         } else {
             num = 1;
         }
+        
+        if (!"Select".equalsIgnoreCase(selectedBranch)) {
+            sql.append("AND a.municipality = ? ");
+        }
 
         // Execute query
         try (Connection conn = DBConnection.Connect(); PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             ps.setInt(1, num);
             ps.setDate(2, startDate);
             ps.setDate(3, endDate);
+            if (!"Select".equalsIgnoreCase(selectedBranch)) {
+                ps.setString(4, selectedBranch);
+            }
 
             ResultSet rs = ps.executeQuery();
 
@@ -180,6 +210,8 @@ public class Super_Report extends javax.swing.JFrame {
         dcStartDate = new com.toedter.calendar.JDateChooser();
         jLabel6 = new javax.swing.JLabel();
         txtTotal = new javax.swing.JTextField();
+        jLabel7 = new javax.swing.JLabel();
+        cbBranch = new javax.swing.JComboBox<>();
 
         jLabel5.setText("jLabel5");
 
@@ -221,8 +253,8 @@ public class Super_Report extends javax.swing.JFrame {
         });
 
         lblDoors.setFont(new java.awt.Font("Poppins", 0, 18)); // NOI18N
-        lblDoors.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/door-open-solid-24.png"))); // NOI18N
-        lblDoors.setText(" Doors");
+        lblDoors.setIcon(new javax.swing.ImageIcon(getClass().getResource("/assets/business-solid-24.png"))); // NOI18N
+        lblDoors.setText(" Branches");
         lblDoors.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         lblDoors.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -364,6 +396,16 @@ public class Super_Report extends javax.swing.JFrame {
 
         txtTotal.setFont(new java.awt.Font("Poppins", 0, 24)); // NOI18N
 
+        jLabel7.setFont(new java.awt.Font("Poppins", 0, 14)); // NOI18N
+        jLabel7.setText("Branch:");
+
+        cbBranch.setFont(new java.awt.Font("Poppins", 0, 12)); // NOI18N
+        cbBranch.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                cbBranchActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout dcEndDateLayout = new javax.swing.GroupLayout(dcEndDate);
         dcEndDate.setLayout(dcEndDateLayout);
         dcEndDateLayout.setHorizontalGroup(
@@ -388,10 +430,16 @@ public class Super_Report extends javax.swing.JFrame {
                 .addGap(18, 18, 18)
                 .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jLabel4)
+                    .addComponent(cbType, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(dcEndDateLayout.createSequentialGroup()
-                        .addComponent(cbType, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(cbBranch, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(btnGenerate)))
+                        .addComponent(btnGenerate))
+                    .addGroup(dcEndDateLayout.createSequentialGroup()
+                        .addComponent(jLabel7)
+                        .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
             .addGroup(dcEndDateLayout.createSequentialGroup()
                 .addGap(17, 17, 17)
@@ -413,14 +461,16 @@ public class Super_Report extends javax.swing.JFrame {
                     .addComponent(jLabel1)
                     .addComponent(jLabel2)
                     .addComponent(jLabel3)
-                    .addComponent(jLabel4))
+                    .addComponent(jLabel4)
+                    .addComponent(jLabel7))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(dcEndDatee, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(cbStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(cbType, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(btnGenerate, javax.swing.GroupLayout.PREFERRED_SIZE, 41, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(dcEndDatee, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addComponent(cbBranch, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addComponent(dcStartDate, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGroup(dcEndDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
@@ -521,6 +571,10 @@ public class Super_Report extends javax.swing.JFrame {
         this.dispose();
     }//GEN-LAST:event_lblHome1MouseClicked
 
+    private void cbBranchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cbBranchActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_cbBranchActionPerformed
+
     /**
      * @param args the command line arguments
      */
@@ -558,6 +612,7 @@ public class Super_Report extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnGenerate;
+    private javax.swing.JComboBox<String> cbBranch;
     private javax.swing.JComboBox<String> cbStatus;
     private javax.swing.JComboBox<String> cbType;
     private javax.swing.JPanel contentPanel;
@@ -571,6 +626,7 @@ public class Super_Report extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
+    private javax.swing.JLabel jLabel7;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JLabel lblBG;
     private javax.swing.JLabel lblDoors;
